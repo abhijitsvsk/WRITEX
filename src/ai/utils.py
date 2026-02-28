@@ -33,9 +33,10 @@ def generate_with_retry(model, prompt, config=None, max_retries=3, base_delay=2)
                 completion = model.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.5,
+                    temperature=0.0,
                     max_tokens=2048,
-                    top_p=1,
+                    top_p=0.05,
+                    seed=42,
                     stop=None,
                     stream=False,
                 )

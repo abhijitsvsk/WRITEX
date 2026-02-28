@@ -234,8 +234,10 @@ with tab3:
                     with st.spinner("Analyzing Sample Style (plus OCR if needed)..."):
                         sa = StyleAnalyzer(api_key=api_key)
                         ext = sample_rep.name.split(".")[-1].lower()
+                        sample_rep.seek(0)
                         raw_text = sa.extract_text(sample_rep, ext)
                         style_guide = sa.analyze_style(raw_text)
+                        sample_rep.seek(0)
                         sample_sections = sa.extract_specific_sections(sample_rep, ext)
                     st.toast("Style & Templates Extracted!", icon="🎨")
 
