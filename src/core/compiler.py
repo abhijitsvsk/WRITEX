@@ -10,6 +10,7 @@ from src.ai.report_generator import ReportGenerator
 
 # Centralized Deterministic Schema — Mirrors the sample report structure exactly
 # Subsections can be strings (simple) or dicts with "title" and "subsubsections" keys
+# SCHEMA_VERSION: 1.0.0 (Production Locked)
 REPORT_SCHEMA = [
     {
         "title": "Introduction",
@@ -43,7 +44,7 @@ REPORT_SCHEMA = [
         "title": "Methodology",
         "subsections": [
             "Data Acquisition and Preprocessing",
-            "Classification",
+            {"title": "Classification", "figure": "Classification Process Workflow"},
             "Verification and Prioritization",
             "Visualization and Reporting",
             {
@@ -51,8 +52,8 @@ REPORT_SCHEMA = [
                 "subsubsections": [
                     "Initialization and Setup",
                     "User Configuration and Data Filtering",
-                    "Simulation Loop (Core Processing)",
-                    "User Actions and Response",
+                    {"title": "Simulation Loop (Core Processing)", "figure": "Core Processing Architecture"},
+                    {"title": "User Actions and Response", "figure": "User Interaction Interface"},
                     "Final Output",
                 ],
             },
@@ -62,21 +63,23 @@ REPORT_SCHEMA = [
         "title": "Implementation",
         "subsections": [
             "Tools and Technologies",
-            "Core Logic Implementation",
-            "Key Modules and Functions",
-            "Code Structure",
+            {"title": "Core Logic Implementation", "figure": "Core Logic Flowchart"},
+            {"title": "Key Modules and Functions", "figure": "Module Interdependency Diagram"},
+            {"title": "Code Structure", "figure": "Codebase Architecture"},
         ],
     },
     {
         "title": "Results and Discussion",
-        "subsections": ["Dataset Overview", "Experimental Output and Analysis"],
+        "subsections": [
+            "Dataset Overview", 
+            {"title": "Experimental Output and Analysis", "figure": "Performance Metrics Graph"}
+        ],
     },
     {
         "title": "Conclusions and Future Scope",
         "subsections": ["Conclusion", "Future Enhancements"],
     },
 ]
-
 
 class DocumentCompiler:
     """
@@ -188,163 +191,101 @@ class DocumentCompiler:
             total = 0
             for c in schema:
                 for sub in c.get("subsections", []):
-                    if isinstance(sub, dict):
-                        total += 1  # The parent subsection
+                    total += 1  # The parent subsection
+                    if isinstance(sub, dict) and "subsubsections" in sub:
                         total += len(sub.get("subsubsections", []))
-                    else:
-                        total += 1
             return total
 
         total_steps = _count_total_steps(REPORT_SCHEMA)
         current_step = 0
+        expected_figures_count = 0
 
-        # Pre-fetch all LLM requests concurrently to prevent Streamlit UI freezes
-        futures_map = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        # Reverted ThreadPoolExecutor due to strict API limits triggering undocumented silent truncations in LLM.
+        # Ensure sequential generation and avoid burst rate limit spikes by adding throttle delays.
+        for chapter_idx, chapter in enumerate(REPORT_SCHEMA):
+            full_structure.append({"type": "chapter", "text": chapter["title"]})
+            
             if progress_callback:
-                progress_callback(0.05, "Parallelizing LLM generation tasks...")
+                progress_callback(
+                    min(0.10 + (current_step / total_steps) * 0.85, 0.95),
+                    f"Generating {chapter['title']}...",
+                )
 
-            for chapter in REPORT_SCHEMA:
-                if chapter.get("subsections"):
-                    sub_titles = [
-                        sub["title"] if isinstance(sub, dict) else sub
-                        for sub in chapter["subsections"]
-                    ]
-                    future = executor.submit(
-                        self.generator.generate_chapter_intro,
-                        chapter["title"],
-                        sub_titles,
-                        summary.to_json(),
-                        context,
-                    )
-                    futures_map[("intro", chapter["title"])] = future
-
-                for sub in chapter.get("subsections", []):
-                    if isinstance(sub, dict):
-                        future = executor.submit(
-                            self.generator.generate_subsection_body,
-                            chapter["title"],
-                            sub["title"],
-                            summary.to_json(),
-                            context,
-                        )
-                        futures_map[("body", chapter["title"], sub["title"])] = future
-
-                        for subsub in sub.get("subsubsections", []):
-                            subsub_title = f"{sub['title']} - {subsub}"
-                            future = executor.submit(
-                                self.generator.generate_subsection_body,
-                                chapter["title"],
-                                subsub_title,
-                                summary.to_json(),
-                                context,
-                            )
-                            futures_map[("body", chapter["title"], subsub_title)] = (
-                                future
-                            )
-                    else:
-                        future = executor.submit(
-                            self.generator.generate_subsection_body,
-                            chapter["title"],
-                            sub,
-                            summary.to_json(),
-                            context,
-                        )
-                        futures_map[("body", chapter["title"], sub)] = future
-
-            institutions = [
-                "Mission and Vision",
-                "Program Educational Objectives (PEO)",
-                "Program Outcomes (PO)",
-                "Program Specific Outcomes (PSO)",
-                "Course Outcomes (CO)",
-            ]
-            for section in institutions:
-                future = executor.submit(
-                    self.generator.generate_subsection_body,
-                    "Institutional Requirements",
-                    section,
+            if chapter.get("subsections"):
+                sub_titles = [
+                    sub["title"] if isinstance(sub, dict) else sub
+                    for sub in chapter["subsections"]
+                ]
+                intro_text = self.generator.generate_chapter_intro(
+                    chapter["title"],
+                    sub_titles,
                     summary.to_json(),
                     context,
                 )
-                futures_map[("body", "Institutional Requirements", section)] = future
-
-            # Wait for all futures to complete and update progress incrementally
-            total_tasks = len(futures_map)
-            completed_tasks = 0
-            for _ in concurrent.futures.as_completed(futures_map.values()):
-                completed_tasks += 1
-                if progress_callback:
-                    p = 0.10 + (completed_tasks / total_tasks) * 0.80
-                    progress_callback(
-                        p,
-                        f"Synthesizing chapters concurrently ({completed_tasks}/{total_tasks})...",
-                    )
-
-        for chapter_idx, chapter in enumerate(REPORT_SCHEMA):
-            full_structure.append({"type": "chapter", "text": chapter["title"]})
-
-            if chapter.get("subsections"):
-                intro_text = futures_map[("intro", chapter["title"])].result()
                 full_structure.append({"type": "paragraph", "text": intro_text})
+                time.sleep(1.0) # Throttle guard to prevent API bursts
 
-            for sub in chapter["subsections"]:
-                if isinstance(sub, dict):
-                    # Dict-based subsection with sub-subsections
-                    sub_title = sub["title"]
-                    body_text = futures_map[
-                        ("body", chapter["title"], sub_title)
-                    ].result()
-                    full_structure.append({"type": "subheading", "text": sub_title})
-                    full_structure.extend(
-                        self._parse_body_blocks(body_text, chapter["title"], context)
+            for sub in chapter.get("subsections", []):
+                sub_title = sub["title"] if isinstance(sub, dict) else sub
+                
+                body_text = self.generator.generate_subsection_body(
+                    chapter["title"],
+                    sub_title,
+                    summary.to_json(),
+                    context,
+                )
+                full_structure.append({"type": "subheading", "text": sub_title})
+                full_structure.extend(
+                    self._parse_body_blocks(body_text, chapter["title"], context)
+                )
+                
+                if isinstance(sub, dict) and "figure" in sub:
+                    expected_figures_count += 1
+                    full_structure.append(
+                        {"type": "paragraph", "text": f"[Figure {chapter_idx+1}.X: {sub['figure']}]"}
                     )
+                time.sleep(1.0)
 
-                    current_step += 1
-                    if progress_callback:
-                        progress_callback(
-                            min(0.90 + (current_step / total_steps) * 0.09, 0.99),
-                            f"Formatting {chapter['title']} > {sub_title}...",
-                        )
-
+                current_step += 1
+                if progress_callback:
+                    progress_callback(
+                        min(0.10 + (current_step / total_steps) * 0.85, 0.95),
+                        f"Generating {chapter['title']} > {sub_title}...",
+                    )
+                
+                if isinstance(sub, dict) and "subsubsections" in sub:
                     # Generate sub-subsections
-                    for subsub_title in sub.get("subsubsections", []):
+                    for subsub in sub.get("subsubsections", []):
+                        subsub_title = subsub["title"] if isinstance(subsub, dict) else subsub
                         subsub_key = f"{sub_title} - {subsub_title}"
-                        body_text = futures_map[
-                            ("body", chapter["title"], subsub_key)
-                        ].result()
+                        body_sub_text = self.generator.generate_subsection_body(
+                            chapter["title"],
+                            subsub_key,
+                            summary.to_json(),
+                            context,
+                        )
                         full_structure.append(
                             {"type": "subsubheading", "text": subsub_title}
                         )
                         full_structure.extend(
                             self._parse_body_blocks(
-                                body_text, chapter["title"], context
+                                body_sub_text, chapter["title"], context
                             )
                         )
+                        
+                        if isinstance(subsub, dict) and "figure" in subsub:
+                            expected_figures_count += 1
+                            full_structure.append(
+                                {"type": "paragraph", "text": f"[Figure {chapter_idx+1}.X: {subsub['figure']}]"}
+                            )
+                        time.sleep(1.0)
 
                         current_step += 1
                         if progress_callback:
                             progress_callback(
-                                min(0.90 + (current_step / total_steps) * 0.09, 0.99),
-                                f"Formatting {chapter['title']} > {sub_title} > {subsub_title}...",
+                                min(0.10 + (current_step / total_steps) * 0.85, 0.95),
+                                f"Generating {chapter['title']} > {sub_title} > {subsub_title}...",
                             )
-                else:
-                    # Simple string subsection
-                    sub_title = sub
-                    body_text = futures_map[
-                        ("body", chapter["title"], sub_title)
-                    ].result()
-                    full_structure.append({"type": "subheading", "text": sub_title})
-                    full_structure.extend(
-                        self._parse_body_blocks(body_text, chapter["title"], context)
-                    )
-
-                    current_step += 1
-                    if progress_callback:
-                        progress_callback(
-                            min(0.90 + (current_step / total_steps) * 0.09, 0.99),
-                            f"Formatting {chapter['title']} > {sub_title}...",
-                        )
 
         # 5. References
         full_structure.append({"type": "section_header", "text": "REFERENCES"})
@@ -352,22 +293,76 @@ class DocumentCompiler:
         full_structure.append({"type": "paragraph", "text": ref_text})
 
         # 6. Post-Reference Institutional Sections (per Sample Parity)
+        institutions = [
+            "Mission and Vision",
+            "Program Educational Objectives (PEO)",
+            "Program Outcomes (PO)",
+            "Program Specific Outcomes (PSO)",
+            "Course Outcomes (CO)",
+        ]
         for section in institutions:
             full_structure.append({"type": "institutional_header", "text": section})
-            body_text = futures_map[
-                ("body", "Institutional Requirements", section)
-            ].result()
+            body_text = self.generator.generate_subsection_body(
+                "Institutional Requirements",
+                section,
+                summary.to_json(),
+                context,
+            )
             full_structure.extend(
                 self._parse_body_blocks(
                     body_text, "Institutional Requirements", context
                 )
             )
+            time.sleep(1.0) # Throttle guard
 
             # Minor progress bump
             if progress_callback:
-                progress_callback(0.99, f"Formatting {section}...")
+                progress_callback(0.97, f"Formatting {section}...")
+
+        # 7. AST Integrity Guard Check
+        self._validate_AST(full_structure, expected_figures_count)
 
         return full_structure
+
+    def _validate_AST(self, full_structure: List[Dict], expected_figures_count: int):
+        """
+        Validates the generated AST blocks to prevent silent document corruption before rendering to Word.
+        """
+        chapters = 0
+        figures = 0
+        major_sections = 0
+        subsections = 0
+        
+        for block in full_structure:
+            text = block.get("text", "")
+            lower_text = text.lower()
+            
+            # Check for API errors or empty failures
+            if "error code:" in lower_text or "rate limit reached" in lower_text or "rror generating" in lower_text:
+                raise RuntimeError(f"InternalGenerationError: Rate limit payload leaked into document body: {text[:100]}")
+            
+            # Basic block counting
+            if block.get("type") == "chapter":
+                chapters += 1
+            if block.get("type") == "section_header":
+                major_sections += 1
+            if block.get("type") in ["subheading", "subsubheading"]:
+                subsections += 1
+            if block.get("type") == "paragraph" and ("[figure" in lower_text or "figure" in lower_text) and "]" in text:
+                figures += 1
+                
+        if chapters < 5:
+            raise RuntimeError(f"InternalGenerationError: Expected >= 5 Chapters, got {chapters}. AST Truncated.")
+            
+        # 32 subsections expected from REPORT_SCHEMA
+        expected_subsection_count = 32
+        if subsections < expected_subsection_count:
+            raise RuntimeError(f"InternalGenerationError: Expected >= {expected_subsection_count} Subsections, got {subsections}. AST Truncated.")
+            
+        if figures < expected_figures_count:
+            raise RuntimeError(f"InternalGenerationError: Expected >= {expected_figures_count} Figures, got {figures}. Semantic Output Degraded.")
+            
+        print(f"AST Validation Passed: Chapters={chapters}, Subsections={subsections}, Placeholders~={figures}, Sections={major_sections}")
 
     def _parse_body_blocks(
         self, body_text: str, chapter_title: str, context: Dict
@@ -394,7 +389,8 @@ class DocumentCompiler:
         for line in lines:
             fig_match = figure_pattern.search(line)
             if fig_match:
-                # Flush any text collected before this figure tag
+                # Security: The LLM is explicitly banned from generating figure tags.
+                # If it hallucinated one anyway, we silently drop the line to enforce 100% backend control.
                 if collected_text:
                     joined = "\n".join(collected_text).strip()
                     if joined:
@@ -404,9 +400,7 @@ class DocumentCompiler:
                             )
                         )
                     collected_text = []
-
-                # Keep the figure tag line as a paragraph (formatting.py handles the caption and placeholder)
-                sub_structure.append({"type": "paragraph", "text": line.strip()})
+                continue
             else:
                 collected_text.append(line)
 

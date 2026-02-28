@@ -9,7 +9,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def generate_with_retry(model, prompt, config=None, max_retries=3, base_delay=2):
+# Global telemetry dictionary
+telemetry_data = {
+    "total_api_calls": 0,
+    "total_retries": 0,
+    "total_rate_limits": 0,
+}
+
+# Production AI Settings
+TARGET_MODEL_VERSION = "llama-3.1-8b-instant"
+
+
+def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5):
     """
     Generates content using the provided AI model (Groq/Llama 3) with exponential backoff for rate limits.
 
@@ -17,21 +28,24 @@ def generate_with_retry(model, prompt, config=None, max_retries=3, base_delay=2)
         model: The initialized Groq client instance.
         prompt: The prompt string.
         config: Optional generation config (dict or GenerationConfig).
-        max_retries: Maximum number of retries (default 3).
+        max_retries: Maximum number of retries (default 5).
         base_delay: Initial delay in seconds (default 2).
 
     Returns:
         The generated text content.
 
     Raises:
-        Exception: If generation fails after all retries.
+        RuntimeError: If generation fails after all retries or hits a non-retriable error.
     """
+    global telemetry_data
+    telemetry_data["total_api_calls"] += 1
+    
     for attempt in range(max_retries):
         try:
             # Check if model object has 'chat' attribute (Groq client)
             if hasattr(model, "chat"):
                 completion = model.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model=TARGET_MODEL_VERSION,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.0,
                     max_tokens=2048,
@@ -60,9 +74,10 @@ def generate_with_retry(model, prompt, config=None, max_retries=3, base_delay=2)
             )
 
             if is_rate_limit:
+                telemetry_data["total_rate_limits"] += 1
                 if attempt == max_retries - 1:
                     logger.error(f"Max retries reached for prompt. Last error: {e}")
-                    raise e  # Re-raise if last attempt
+                    raise RuntimeError(f"RateLimitError: Exhausted maximum retries ({max_retries}). {error_str}")
 
                 # Try to parse wait time from error message
                 wait_time = 0
@@ -70,7 +85,7 @@ def generate_with_retry(model, prompt, config=None, max_retries=3, base_delay=2)
                 match = re.search(r"try again in (\d+(\.\d+)?)s", error_str)
                 if match:
                     wait_time = float(match.group(1))
-                    delay = wait_time + 0.5
+                    delay = wait_time + 1.0
                     logger.warning(
                         f"Rate limit hit. API requested wait of {wait_time:.2f}s. Sleeping for {delay:.2f}s."
                     )
@@ -83,7 +98,9 @@ def generate_with_retry(model, prompt, config=None, max_retries=3, base_delay=2)
 
                 print(f"⏳ Rate limit hit — waiting {delay:.1f}s before retry...")
                 time.sleep(delay)
+                telemetry_data["total_retries"] += 1
             else:
                 logger.error(f"Non-retriable error: {e}")
-                raise e  # Re-raise other errors immediately
-    return ""
+                raise RuntimeError(f"API Error: {error_str}")
+                
+    raise RuntimeError("Unexpected failure: exited retry loop without returning or raising.")

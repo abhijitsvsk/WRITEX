@@ -169,12 +169,10 @@ class ReportGenerator:
             "Results and Discussion"
         ]
         
-        if any(allowed in chapter_title for allowed in allowed_figure_chapters):
-            figure_rule = "6. **FIGURE DEFINITIONS**: If this section logically requires an architecture diagram, workflow pipeline, database schema, or UI mockup, insert EXACTLY `[Figure X.Y: Descriptive Academic Caption Here]` on its own line. Do NOT output mermaid code or any other diagram structures."
-        else:
-            figure_rule = "6. **STRICT DIAGRAM BAN**: You are writing a non-technical chapter (e.g. Introduction, Literature Survey, Conclusion). You MUST NOT generate any `[Figure X.Y]` placeholders or diagrams whatsoever. Keep it strictly textual."
+        figure_rule = "6. **STRICT DIAGRAM BAN**: You MUST NOT generate any `[Figure X.Y: Caption]` placeholders or diagrams whatsoever. The backend system will handle all figure insertions deterministically. Keep your output strictly textual."
 
         prompt = f"""
+        [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
         You are an expert Academic Editor and Strategic System Architect writing a formal B.Tech Project Report.
         
         Project Metadata (JSON):
@@ -196,13 +194,10 @@ class ReportGenerator:
         7. **STRICT LENGTH**: Write exactly 300-350 words. Do not trail off or include meta-commentary.
         """
 
-        try:
-            result = generate_with_retry(self.model, prompt)
-            self.cache[cache_key] = result
-            self._save_cache()
-            return result
-        except Exception as e:
-            return f"Error generating {subsection_title}: {str(e)}"
+        result = generate_with_retry(self.model, prompt)
+        self.cache[cache_key] = result
+        self._save_cache()
+        return result
 
     def generate_chapter_intro(
         self,
@@ -226,10 +221,7 @@ class ReportGenerator:
         4. NO HEADINGS. Just pure text.
         5. DO NOT hallucinate features.
         """
-        try:
-            return generate_with_retry(self.model, prompt)
-        except Exception as e:
-            return f"This chapter discusses {chapter_title}."
+        return generate_with_retry(self.model, prompt)
 
     def fill_template(self, section_name: str, user_context: Dict) -> str:
         """
