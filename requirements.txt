@@ -1,0 +1,12 @@
+python-docx
+streamlit
+pandas
+requests
+black
+python-dotenv
+groq
+PyPDF2
+pytest
+flake8
+mypy
+bandit
