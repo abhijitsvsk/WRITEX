@@ -437,7 +437,82 @@ def generate_report(
             except Exception as e:
                 print(f"Error embedding standalone diagram: {e}")
 
-        # 9. PARAGRAPH / BODY / PLACEHOLDERS
+        # 9. FIGURE (NATIVE AST OBJECT)
+        elif itype == "figure":
+            counters["figure"] += 1
+            caption_clean = item.get("caption", "").strip()
+            
+            # --- IMAGE PLACEHOLDER OR ACTUAL IMAGE ---
+            next_item = structure[idx + 1] if idx + 1 < len(structure) else None
+            # If the architecture ever feeds in an image buffer, inject it natively
+            if next_item and next_item.get("type") == "image":
+                import io
+                try:
+                    image_stream = io.BytesIO(next_item["content"])
+                    doc.add_picture(image_stream, width=Inches(6.0))
+                    last_paragraph = doc.paragraphs[-1]
+                    last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                except Exception as e:
+                    print(f"Error embedding diagram: {e}")
+                skip_indices.add(idx + 1)
+            else:
+                placeholder_p = doc.add_paragraph()
+                placeholder_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                placeholder_p.paragraph_format.space_before = Pt(12)
+                placeholder_p.paragraph_format.space_after = Pt(6)
+
+                box_run = placeholder_p.add_run("\n[ Image Placeholder ]\n")
+                box_run.font.name = "Consolas"
+                box_run.font.size = Pt(10)
+
+                shading_elm = OxmlElement("w:shd")
+                shading_elm.set(ns.qn("w:val"), "clear")
+                shading_elm.set(ns.qn("w:color"), "auto")
+                shading_elm.set(ns.qn("w:fill"), "EAEAEA")
+                placeholder_p.paragraph_format.element.get_or_add_pPr().append(
+                    shading_elm
+                )
+
+            # --- CAPTION ---
+            p = doc.add_paragraph()
+            p.style = doc.styles["Caption"]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.space_after = Pt(12)
+            p.paragraph_format.line_spacing = 1.0  # Single spaced for figures
+
+            # EXACT FORMATTING PARITY: "3.1 Title" instead of "Figure 3.1 X: Title"
+            run = p.add_run(f"{counters['chapter']}.")
+            run.font.name = font_name
+            run.font.size = Pt(11)
+
+            # Inject the hidden SEQ field code for auto-numbering
+            fldChar1 = OxmlElement("w:fldChar")
+            fldChar1.set(ns.qn("w:fldCharType"), "begin")
+            instrText = OxmlElement("w:instrText")
+            instrText.set(ns.qn("xml:space"), "preserve")
+            # \s 1 resets the SEQ number at every Heading 1 (Chapter)
+            instrText.text = " SEQ Figure \\* ARABIC \\s 1 "
+            fldChar2 = OxmlElement("w:fldChar")
+            fldChar2.set(ns.qn("w:fldCharType"), "separate")
+
+            # Word requires a cached text result, otherwise it drops the field as corrupted
+            t = OxmlElement("w:t")
+            t.text = str(counters["figure"])
+
+            fldChar3 = OxmlElement("w:fldChar")
+            fldChar3.set(ns.qn("w:fldCharType"), "end")
+
+            run._r.append(fldChar1)
+            run._r.append(instrText)
+            run._r.append(fldChar2)
+            run._r.append(t)
+            run._r.append(fldChar3)
+
+            run2 = p.add_run(" " + caption_clean)
+            run2.font.name = font_name
+            run2.font.size = Pt(11)
+
+        # 10. PARAGRAPH / BODY / PLACEHOLDERS
         else:
             text = text.strip()
             if not text:
@@ -456,161 +531,18 @@ def generate_report(
                 # So we simply need to support `code_block` type!
                 pass  # Proceed. Support handled above.
 
-            figure_match = re.search(
-                r"^\*?\[?(?:Fig|Figure)\s*[\d\.]+\]?\*?[:\-]?\s*(.*)",
-                text,
-                re.IGNORECASE,
-            )
+            # The architecture now structurally guarantees that all figures are emitted natively as `{"type": "figure"}`.
+            # Hallucinated `[Figure]` text inside generic paragraphs is stripped by the Compiler's parser layer.
+            # Therefore, we simply print text natively without string-based masking.
+            p = doc.add_paragraph(text)
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            p.paragraph_format.space_before = Pt(6)
+            p.paragraph_format.space_after = Pt(12)
+            p.paragraph_format.line_spacing = line_spacing
 
-            if figure_match or text.startswith("[Figure") or text.startswith("Figure"):
-                counters["figure"] += 1
-                fig_num = f"{counters['chapter']}.{counters['figure']}"
-
-                caption_text = ""
-                if figure_match:
-                    caption_text = figure_match.group(1).strip()
-                if not caption_text:
-                    caption_text = (
-                        text.replace("[", "").replace("]", "").replace("*", "").strip()
-                    )
-                    caption_text = re.sub(
-                        r"^(?:Fig|Figure)\s*[\d\.]+[:\-]?\s*",
-                        "",
-                        caption_text,
-                        flags=re.IGNORECASE,
-                    )
-
-                # ISSUE 2: Relevance filtering on render
-                caption_clean = caption_text.rstrip("]").strip()
-                _cap_low = caption_clean.lower()
-                _valid_keywords = [
-                    "architecture",
-                    "workflow",
-                    "screenshot",
-                    "dashboard",
-                    "dataset",
-                    "flowchart",
-                    "diagram",
-                    "interface",
-                    "graph",
-                    "chart",
-                    "design",
-                    "pipeline",
-                ]
-
-                if any(k in _cap_low for k in _valid_keywords):
-                    # Fix 4: Enhanced Semantic Dedup
-                    # Remove filler words to prevent identical concepts naming variations
-                    _norm = _cap_low
-                    for w in [
-                        "diagram",
-                        "overview",
-                        "system",
-                        "writex",
-                        "flowchart",
-                        "pipeline",
-                        "architecture",
-                    ]:
-                        _norm = _norm.replace(w, "")
-                    _norm = re.sub(r"[^a-z0-9]", "", _norm)
-
-                    # If the normalized string is empty, it means the title was purely filler ("System Architecture Diagram")
-                    # We only allow ONE purely generic diagram per report to prevent spam.
-                    if not _norm:
-                        _norm = "generic_architecture_diagram"
-
-                    if _norm in seen_captions:
-                        counters["figure"] -= 1
-                        continue
-                    seen_captions.add(_norm)
-
-                    # --- IMAGE PLACEHOLDER (NATIVE BOX) OR ACTUAL IMAGE ---
-                    next_item = structure[idx + 1] if idx + 1 < len(structure) else None
-                    if next_item and next_item.get("type") == "image":
-                        import io
-
-                        try:
-                            image_stream = io.BytesIO(next_item["content"])
-                            doc.add_picture(image_stream, width=Inches(6.0))
-                            last_paragraph = doc.paragraphs[-1]
-                            last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        except Exception as e:
-                            print(f"Error embedding diagram: {e}")
-                        skip_indices.add(idx + 1)
-                    else:
-                        placeholder_p = doc.add_paragraph()
-                        placeholder_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        placeholder_p.paragraph_format.space_before = Pt(12)
-                        placeholder_p.paragraph_format.space_after = Pt(6)
-
-                        box_run = placeholder_p.add_run("\n[ Image Placeholder ]\n")
-                        box_run.font.name = "Consolas"
-                        box_run.font.size = Pt(10)
-
-                        shading_elm = OxmlElement("w:shd")
-                        shading_elm.set(ns.qn("w:val"), "clear")
-                        shading_elm.set(ns.qn("w:color"), "auto")
-                        shading_elm.set(ns.qn("w:fill"), "EAEAEA")
-                        placeholder_p.paragraph_format.element.get_or_add_pPr().append(
-                            shading_elm
-                        )
-
-                    # --- CAPTION ---
-                    p = doc.add_paragraph()
-                    p.style = doc.styles["Caption"]
-                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    p.paragraph_format.space_after = Pt(12)
-                    p.paragraph_format.line_spacing = 1.0  # Single spaced for figures
-
-                    run = p.add_run(f"Figure {counters['chapter']}.")
-                    run.italic = True
-                    run.font.name = font_name
-                    run.font.size = Pt(11)
-
-                    # Inject the hidden SEQ field code for auto-numbering
-                    fldChar1 = OxmlElement("w:fldChar")
-                    fldChar1.set(ns.qn("w:fldCharType"), "begin")
-                    instrText = OxmlElement("w:instrText")
-                    instrText.set(ns.qn("xml:space"), "preserve")
-                    # \s 1 resets the SEQ number at every Heading 1 (Chapter)
-                    instrText.text = " SEQ Figure \\* ARABIC \\s 1 "
-                    fldChar2 = OxmlElement("w:fldChar")
-                    fldChar2.set(ns.qn("w:fldCharType"), "separate")
-
-                    # Word requires a cached text result, otherwise it drops the field as corrupted
-                    t = OxmlElement("w:t")
-                    t.text = str(
-                        counters["figure"]
-                    )  # Cached figure number for LOF display
-
-                    fldChar3 = OxmlElement("w:fldChar")
-                    fldChar3.set(ns.qn("w:fldCharType"), "end")
-
-                    run._r.append(fldChar1)
-                    run._r.append(instrText)
-                    run._r.append(fldChar2)
-                    run._r.append(t)
-                    run._r.append(fldChar3)
-
-                    run2 = p.add_run(" " + caption_clean)
-                    run2.italic = True
-                    run2.font.name = font_name
-                    run2.font.size = Pt(11)
-                else:
-                    # Silently ignore irrelevant figures
-                    counters[
-                        "figure"
-                    ] -= 1  # Revert figure counter since we didn't add it
-            else:
-                p = doc.add_paragraph(text)
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                p.paragraph_format.space_before = Pt(6)
-                p.paragraph_format.space_after = Pt(12)
-                p.paragraph_format.line_spacing = line_spacing
-
-                for run in p.runs:
-                    run.font.name = font_name
-                    run.font.size = Pt(font_size)
+            for run in p.runs:
+                run.font.name = font_name
+                run.font.size = Pt(font_size)
 
     # --- POST-PROCESSING ---
 

@@ -242,7 +242,7 @@ class DocumentCompiler:
                 if isinstance(sub, dict) and "figure" in sub:
                     expected_figures_count += 1
                     full_structure.append(
-                        {"type": "paragraph", "text": f"[Figure {chapter_idx+1}.X: {sub['figure']}]"}
+                        {"type": "figure", "caption": sub["figure"]}
                     )
                 time.sleep(1.0)
 
@@ -276,7 +276,7 @@ class DocumentCompiler:
                         if isinstance(subsub, dict) and "figure" in subsub:
                             expected_figures_count += 1
                             full_structure.append(
-                                {"type": "paragraph", "text": f"[Figure {chapter_idx+1}.X: {subsub['figure']}]"}
+                                {"type": "figure", "caption": subsub["figure"]}
                             )
                         time.sleep(1.0)
 
@@ -289,8 +289,10 @@ class DocumentCompiler:
 
         # 5. References
         full_structure.append({"type": "section_header", "text": "REFERENCES"})
-        ref_text = self._generate_factual_references(context, summary)
-        full_structure.append({"type": "paragraph", "text": ref_text})
+        if not context.get("references"):
+            full_structure.append({"type": "paragraph", "text": "No references provided by author."})
+        else:
+            full_structure.append({"type": "paragraph", "text": context.get("references")})
 
         # 6. Post-Reference Institutional Sections (per Sample Parity)
         institutions = [
@@ -348,9 +350,16 @@ class DocumentCompiler:
                 major_sections += 1
             if block.get("type") in ["subheading", "subsubheading"]:
                 subsections += 1
-            if block.get("type") == "paragraph" and ("[figure" in lower_text or "figure" in lower_text) and "]" in text:
-                figures += 1
+            if block.get("type") == "paragraph":
+                # Guard against hallucinated academic citations
+                if "fictional" in lower_text or "note: the references" in lower_text or "j. smith" in lower_text or "[1] a." in lower_text:
+                    raise RuntimeError("InternalGenerationError: Fictional keyword/citation pattern detected in AST.")
                 
+            if block.get("type") == "figure":
+                figures += 1
+                caption = block.get("caption", "")
+                if "X:" in caption or re.search(r"Figure \d+\.\d+ X:", caption, re.IGNORECASE):
+                    raise RuntimeError(f"InternalGenerationError: LOF format corruption 'X:' detected in caption: {caption}")
         if chapters < 5:
             raise RuntimeError(f"InternalGenerationError: Expected >= 5 Chapters, got {chapters}. AST Truncated.")
             
@@ -476,26 +485,3 @@ class DocumentCompiler:
 
         return sub_structure
 
-    def _generate_factual_references(self, context: Dict, summary: Any) -> str:
-        """Isolated strict reference generation loop."""
-        ref_prompt = (
-            f"Generate a formal 'References' section for this project.\n"
-            f"STRICT RULES:\n"
-            f"1. DO NOT hallucinate textbooks, random academic papers, or fake URLs.\n"
-            f"2. ONLY create citation entries for the actual tech stack, libraries, and frameworks listed here: {context.get('tech_stack', summary.to_json())}\n"
-            f"3. Format them formally (e.g., '[1] Python Software Foundation, \"Python Language Reference\", version 3.x...').\n"
-            f"4. If there is NO tech stack data available, simply return '[1] Project Source Code and Internal Documentation.'\n"
-            f"5. Do NOT include any markdown headers or intro text. Just the numbered list."
-        )
-        try:
-            res = (
-                self.generator.model.chat.completions.create(
-                    model=self.generator.model_name,
-                    messages=[{"role": "user", "content": ref_prompt}],
-                )
-                .choices[0]
-                .message.content.strip()
-            )
-            return res
-        except:
-            return "[1] Project Source Code and internal libraries."

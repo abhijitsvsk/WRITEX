@@ -318,7 +318,7 @@ class ReportGenerator:
         1. Compare 3 distinct standard academic approaches relevant to this tech stack domain (e.g. Rule-based Text Processing, Deep NLP, Automated Typesetting).
         2. For each, state the **Limitation** (Technical bottleneck, like high compute cost or latency).
         3. State how THIS project proposes to solve it using deterministic rule-based algorithms.
-        4. **STRICT IEEE CITATIONS**: You MUST synthesize highly realistic academic citations in IEEE format. For example: "As demonstrated by Smith et al. [1], standard implementations of X typically suffer from..."
+        4. **NO HALLUCINATED CITATIONS**: Do not generate any raw citations (e.g. [1] Smith). Speak generally about algorithmic limitations without inventing fictional authors.
         5. DO NOT mention specific Python filenames. Speak in high-level system abstractions (e.g., "The lexical parsing module").
         6. NO HEADINGS. Just body text.
         7. STRICT LENGTH: Write exactly 350-400 words.
@@ -425,7 +425,7 @@ class ReportGenerator:
         1. **NO RAW CODE OR FILE NAMES**: Absolutely DO NOT mention specific Python filenames like `formatting.py` or `.py` files at all. DO NOT dump raw code functions. Speak entirely in abstract system-level terminology (e.g., "The Preprocessing Module", "The Data Transformation Layer", etc.).
         2. **ACADEMIC STORYTELLING**: Synthesize a cohesive academic narrative. Discuss the theoretical dataset defined above, the ETL pipeline architecture, system latency, and rule-based evaluation metrics. Do not invent ML metrics like F1 or Recall. Ensure you portray it as a deterministic Intelligent NLP-Assisted pipeline.
         3. **INSTITUTIONAL OUTCOMES (PEO/PO/PSO/CO)**: If this section is PEO, PO, PSO, or CO, DO NOT refer to specific code, modules, or features of the project. Speak exclusively about high-level B.Tech Educational Outcomes (e.g., "Ability to design complex systems", "Demonstrating engineering life-long learning").
-        4. **REFERENCES**: If this section is "References", generate EXACTLY 4-6 highly realistic, academic IEEE format citations (e.g., `[1] A. Smith, "Title," Journal...`) relevant to the project's domain.
+        4. **NO FICTIONAL REFERENCES**: DO NOT hallucinate fake citations, author names (e.g., J. Smith), or fictional textbook references under any circumstances.
         5. **NO HEADINGS**: Write ONLY pure academic paragraphs.
         6. **STRICT LENGTH**: Exactly 300-350 words. Do not trail off or write meta-text.
         """
