@@ -287,12 +287,7 @@ class DocumentCompiler:
                                 f"Generating {chapter['title']} > {sub_title} > {subsub_title}...",
                             )
 
-        # 5. References
-        full_structure.append({"type": "section_header", "text": "REFERENCES"})
-        if not context.get("references"):
-            full_structure.append({"type": "paragraph", "text": "No references provided by author."})
-        else:
-            full_structure.append({"type": "paragraph", "text": context.get("references")})
+
 
         # 6. Post-Reference Institutional Sections (per Sample Parity)
         institutions = [
@@ -320,6 +315,11 @@ class DocumentCompiler:
             # Minor progress bump
             if progress_callback:
                 progress_callback(0.97, f"Formatting {section}...")
+
+        # 6. References (Strictly final section globally)
+        full_structure.append({"type": "section_header", "text": "REFERENCES"})
+        ref_text = self._generate_factual_doc_references(context, summary)
+        full_structure.append({"type": "paragraph", "text": ref_text})
 
         # 7. AST Integrity Guard Check
         self._validate_AST(full_structure, expected_figures_count)
@@ -485,3 +485,34 @@ class DocumentCompiler:
 
         return sub_structure
 
+    def _generate_factual_doc_references(self, context: Dict, summary: Any) -> str:
+        """Deterministically generates references from the analyzed tech stack to avoid LLM hallucinations."""
+        import datetime
+        
+        if context.get("references"):
+            return context.get("references")
+            
+        tech_data = context.get('tech_stack')
+        if not tech_data and hasattr(summary, 'tech_stack'):
+            tech_data = summary.tech_stack
+            
+        if not tech_data:
+            return "No references provided by author."
+            
+        if isinstance(tech_data, str):
+            tech_list = [t.strip() for t in tech_data.split(',') if t.strip()]
+        elif isinstance(tech_data, list):
+            tech_list = [str(t).strip() for t in tech_data if str(t).strip()]
+        else:
+            return "No references provided by author."
+            
+        if not tech_list:
+            return "No references provided by author."
+            
+        current_year = datetime.datetime.now().year
+        citations = []
+        for i, tech in enumerate(tech_list[:5]):  # Cap at 5 core technologies to map closely
+            tech_clean = tech.title()
+            citations.append(f"[{i+1}] Official Documentation and API Reference for {tech_clean}. {tech_clean} Development Team, {current_year}.")
+            
+        return "\n\n".join(citations)

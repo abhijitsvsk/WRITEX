@@ -185,7 +185,7 @@ class ReportGenerator:
             
             targets_str = ", ".join(valid_targets[:20]) if valid_targets else "core logic functions"
             
-            code_rule = f"5. **CODE EXTRACTION ALLOWED**: You MUST use `[Extract Code: FunctionName]` or `[Extract Code: ClassName]` tags on their own lines to showcase critical logic. IMPORTANT: You MUST ONLY use the following valid targets from the actual codebase: {targets_str}. Do not hallucinate names!"
+            code_rule = f"5. **MANDATORY CODE EXTRACTION**: Because this is the Implementation chapter, you MUST output 1 to 2 codebase snippets to illustrate the system's core algorithmic logic. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
 
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
@@ -204,7 +204,7 @@ class ReportGenerator:
         1. **NO HEADINGS**: Do NOT output markdown headings (no #, ##, ###). Write ONLY pure academic paragraphs.
         2. **NO RAW CODE OR FILE NAMES**: Absolutely DO NOT mention specific Python filenames. Speak entirely in abstract system-level terminology (e.g., "The Text Preprocessing Module", "The Lexical Analyzer", etc.).
         3. **ACADEMIC STORYTELLING**: You must synthesize a cohesive academic narrative based on the project data. Discuss the theoretical dataset (50 academic drafts), the ETL pipeline, system architectures, and rule-based evaluation logic (Parsing Accuracy, Formatting Consistency).
-        4. **LITERATURE SURVEY (IEEE FORMAT)**: If you are writing for Chapter 2 (Literature Survey), you MUST synthesize fake, highly realistic academic critiques of existing systems using strict IEEE citation format. Provide comparative analysis and explicitly identify research gaps that this project solves.
+        4. **LITERATURE SURVEY**: If you are writing for Chapter 2 (Literature Survey), you MUST synthesize a highly authentic comparative analysis of existing systems. Identify research gaps that this project solves. **CRITICAL: DO NOT insert ANY references, bibliographies, or IEEE citations [e.g., [1] J. Smith] into this chapter under any circumstances.**
         {code_rule}
         {figure_rule}
         7. **STRICT LENGTH**: Write exactly 300-350 words. Do not trail off or include meta-commentary.
