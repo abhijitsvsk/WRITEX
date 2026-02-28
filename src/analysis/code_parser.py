@@ -239,7 +239,16 @@ class CodeParser:
         ]
         significant_funcs.sort(key=lambda f: f.line_end - f.line_start, reverse=True)
 
-        for func in significant_funcs[:3]:
+        # Extract top 2 classes and top 2 functions
+        significant_classes = classes[:]
+        significant_classes.sort(key=lambda c: c.line_end - c.line_start, reverse=True)
+        for cls in significant_classes[:2]:
+            start = cls.line_start - 1
+            end = min(start + 10, cls.line_end)
+            snippet_code = "\n".join(lines[start:end])
+            snippets.append((cls.line_start, end, snippet_code))
+
+        for func in significant_funcs[:2]:
             start = func.line_start - 1  # 0-indexed
             end = min(start + 10, func.line_end)  # Max 10 lines
 

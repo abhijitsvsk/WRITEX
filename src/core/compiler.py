@@ -445,10 +445,10 @@ class DocumentCompiler:
                         for snippet_tuple in snippets:
                             if len(snippet_tuple) == 3:
                                 code_str = snippet_tuple[2]
-                                first_line = code_str.split("\n")[0]
                                 if (
-                                    f"def {target_name}" in first_line
-                                    or f"class {target_name}" in first_line
+                                    f"def {target_name}" in code_str
+                                    or f"class {target_name}" in code_str
+                                    or target_name in code_str
                                 ):
                                     sub_structure.append(
                                         {

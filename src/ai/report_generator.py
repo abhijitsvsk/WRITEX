@@ -171,6 +171,22 @@ class ReportGenerator:
         
         figure_rule = "6. **STRICT DIAGRAM BAN**: You MUST NOT generate any `[Figure X.Y: Caption]` placeholders or diagrams whatsoever. The backend system will handle all figure insertions deterministically. Keep your output strictly textual."
 
+        code_rule = "5. **NO CODE EXTRACTION**: Do not use `[Extract Code: X]` tags. Discuss the system logic conceptually."
+        actual_code_context = ""
+        
+        if chapter_title == "Implementation":
+            valid_targets = []
+            analysis = user_context.get("detailed_analysis")
+            if analysis:
+                for f in analysis.functions:
+                    valid_targets.append(f.name)
+                for c in analysis.classes:
+                    valid_targets.append(c.name)
+            
+            targets_str = ", ".join(valid_targets[:20]) if valid_targets else "core logic functions"
+            
+            code_rule = f"5. **CODE EXTRACTION ALLOWED**: You MUST use `[Extract Code: FunctionName]` or `[Extract Code: ClassName]` tags on their own lines to showcase critical logic. IMPORTANT: You MUST ONLY use the following valid targets from the actual codebase: {targets_str}. Do not hallucinate names!"
+
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
         You are an expert Academic Editor and Strategic System Architect writing a formal B.Tech Project Report.
@@ -189,7 +205,7 @@ class ReportGenerator:
         2. **NO RAW CODE OR FILE NAMES**: Absolutely DO NOT mention specific Python filenames. Speak entirely in abstract system-level terminology (e.g., "The Text Preprocessing Module", "The Lexical Analyzer", etc.).
         3. **ACADEMIC STORYTELLING**: You must synthesize a cohesive academic narrative based on the project data. Discuss the theoretical dataset (50 academic drafts), the ETL pipeline, system architectures, and rule-based evaluation logic (Parsing Accuracy, Formatting Consistency).
         4. **LITERATURE SURVEY (IEEE FORMAT)**: If you are writing for Chapter 2 (Literature Survey), you MUST synthesize fake, highly realistic academic critiques of existing systems using strict IEEE citation format. Provide comparative analysis and explicitly identify research gaps that this project solves.
-        5. **NO HALLUCINATED CODE BLOCK EXTRACTION**: Do not use `[Extract Code: X]` tags. Discuss the system logic conceptually.
+        {code_rule}
         {figure_rule}
         7. **STRICT LENGTH**: Write exactly 300-350 words. Do not trail off or include meta-commentary.
         """
