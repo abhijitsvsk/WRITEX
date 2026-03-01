@@ -93,9 +93,8 @@ def _estimate_toc_entries(structure):
         elif itype == "paragraph":
             text_len = len(text)
             # A4 width = 8.27". Left 1.5", Right 1.0" => usable width 5.77".
-            # 5.77 * 72 points = 415 points width.
-            # 12pt TNR ~6 points wide on average per char. 415 / 6 = ~69 chars per line.
-            lines = max(1, text_len // 65 + (1 if text_len % 65 > 0 else 0))
+            # Empirically, Times New Roman 12pt fits ~85 real-world text characters on a 5.77-inch line.
+            lines = max(1, text_len // 85 + (1 if text_len % 85 > 0 else 0))
             # Font 12pt line height = 14.4pt. 1.5 spacing = 21.6pt per line. Margins before=6, after=12 (18pt).
             pt = lines * 21.6 + 18
             _add_points(pt)
