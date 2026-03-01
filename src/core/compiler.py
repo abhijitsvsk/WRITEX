@@ -444,7 +444,8 @@ class DocumentCompiler:
                 continue
 
             code_match = re.search(r"\[Extract Code:\s*(.*?)\]", line, re.IGNORECASE)
-            if code_match and "Implementation" in chapter_title:
+            tech_chapters = ["Implementation", "Architecture", "Methodology", "Proposed", "Analysis", "Algorithm"]
+            if code_match and any(tc in chapter_title for tc in tech_chapters):
                 target_name = code_match.group(1).strip()
                 extracted = False
                 analysis_data = context.get("detailed_analysis")

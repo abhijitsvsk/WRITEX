@@ -174,7 +174,8 @@ class ReportGenerator:
         code_rule = "5. **NO CODE EXTRACTION**: Do not use `[Extract Code: X]` tags. Discuss the system logic conceptually."
         actual_code_context = ""
         
-        if chapter_title == "Implementation":
+        tech_chapters = ["Implementation", "System Architecture", "System Analysis and Design", "Proposed System", "Methodology"]
+        if any(tc in chapter_title for tc in tech_chapters):
             valid_targets = []
             analysis = user_context.get("detailed_analysis")
             if analysis:
@@ -185,7 +186,10 @@ class ReportGenerator:
             
             targets_str = ", ".join(valid_targets[:20]) if valid_targets else "core logic functions"
             
-            code_rule = f"5. **MANDATORY CODE EXTRACTION**: Because this is the Implementation chapter, you MUST output 1 to 2 codebase snippets to illustrate the system's core algorithmic logic. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
+            if chapter_title == "Implementation":
+                code_rule = f"5. **MANDATORY CODE EXTRACTION**: Because this is the Implementation chapter, you MUST output 1 to 2 codebase snippets to illustrate the system's core algorithmic logic. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
+            else:
+                code_rule = f"5. **CODE EXTRACTION ALLOWED**: You may output 1 codebase snippet to illustrate core logic if relevant to this section. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
 
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
