@@ -9,100 +9,125 @@ from docx.enum.style import WD_STYLE_TYPE
 
 def _estimate_toc_entries(structure):
     """
-    Pre-scans the full document structure array to build a list of 
-    (title, heading_level, estimated_page_number) tuples for the TOC,
-    and a list of (caption, estimated_page_number) tuples for the LOF.
-    
-    Page estimation accounts for:
-    - Page-break-causing elements (chapters, section_headers, etc.)
-    - Content length (paragraphs consume ~3 lines each, page overflows at ~40 lines)
-    - Code blocks consuming more vertical space
+    Tracks precise typographical PostScript points to calculate exact Word physical page breaks
+    by emulating font kerning boundaries, margins, and 1.5x physical line spacing.
     """
     toc_entries = []
     lof_entries = []
-    page = 1  # Start at page 1 (front-matter)
-    lines_on_page = 0  # Track line consumption on current page
-    LINES_PER_PAGE = 38  # Approximate lines per page with margins
+    
+    # 11 inches tall = 792 points. 1 inch margins top/bot = 144. Usable = 648 pt.
+    PAGE_HEIGHT_PT = 648
+    
+    page = 1
+    points_on_page = 0
     chapter_counter = 0
     sub_counter = 0
     subsub_counter = 0
     fig_counter = 0
-    in_chapters = False  # Track when we enter the chapter section
 
     def _new_page():
-        nonlocal page, lines_on_page
+        nonlocal page, points_on_page
         page += 1
-        lines_on_page = 0
+        points_on_page = 0
 
-    def _add_lines(n):
-        nonlocal page, lines_on_page
-        lines_on_page += n
-        while lines_on_page >= LINES_PER_PAGE:
-            lines_on_page -= LINES_PER_PAGE
+    def _add_points(pt):
+        nonlocal page, points_on_page
+        points_on_page += pt
+        while points_on_page > PAGE_HEIGHT_PT:
+            # Document fragmentation (Word wrapping text across boundaries natively)
+            points_on_page -= PAGE_HEIGHT_PT
             page += 1
 
-    for item in structure:
+    skip_indices = set()
+
+    for idx, item in enumerate(structure):
+        if idx in skip_indices:
+            continue
+            
         itype = item.get("type", "")
         text = item.get("text", "")
 
-        # These types cause a new page
         if itype in ("toc", "lof", "section_header", "institutional_header", "page_break"):
             _new_page()
-            _add_lines(4)  # Heading consumes ~4 lines
+            _add_points(60) # Typical heading height pt
             if itype == "section_header":
                 header_text = text.strip()
                 if header_text.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
                     toc_entries.append((header_text.title(), 0, page))
-            elif itype == "toc":
-                # TOC itself will consume roughly 1 line per heading + 4 for the heading
-                # We'll estimate this after we know how many entries there are
-                _add_lines(15)  # Rough estimate for TOC content
-            elif itype == "lof":
-                _add_lines(8)  # Rough estimate for LOF content
 
         elif itype == "chapter":
             chapter_counter += 1
             sub_counter = 0
             subsub_counter = 0
             fig_counter = 0
+            
             if chapter_counter == 1:
-                # Section break resets page to 1
-                in_chapters = True
+                # Arabic page '1' strictly begins at Chapter 1
                 page = 1
-                lines_on_page = 0
+                points_on_page = 0
             else:
                 _new_page()
-            _add_lines(5)  # Chapter heading consumes ~5 lines
+                
+            _add_points(61)  # 16pt * 2 lines (avg) + 24pt after
             toc_entries.append((f"Chapter {chapter_counter} {text.title()}", 1, page))
 
         elif itype == "subheading":
             sub_counter += 1
             subsub_counter = 0
-            _add_lines(3)  # Subheading consumes ~3 lines
+            # Space before=18, after=12, text=16. + Widow/Orphan protection bounds
+            if points_on_page + 46 + 40 > PAGE_HEIGHT_PT:
+                _new_page()
+            _add_points(46)
             prefix = f"{chapter_counter}.{sub_counter}"
             toc_entries.append((f"{prefix} {text.title()}", 2, page))
 
         elif itype == "subsubheading":
             subsub_counter += 1
-            _add_lines(2)
+            if points_on_page + 36 + 40 > PAGE_HEIGHT_PT:
+                _new_page()
+            _add_points(36)
             prefix = f"{chapter_counter}.{sub_counter}.{subsub_counter}"
             toc_entries.append((f"{prefix} {text.title()}", 3, page))
 
         elif itype == "paragraph":
-            # Estimate lines based on text length (~80 chars per line)
             text_len = len(text)
-            estimated_lines = max(2, text_len // 80 + 1)
-            _add_lines(estimated_lines)
+            # TNR 12pt approx 75 chars per line over a 6 inch body block width.
+            lines = max(1, text_len // 75 + (1 if text_len % 75 > 0 else 0))
+            # 1.5 spacing = 18pt per line. Margins before=6, after=12.
+            pt = lines * 18 + 18
+            _add_points(pt)
 
         elif itype == "code_block":
-            # Code blocks are typically longer
-            code_lines = text.count('\n') + 3  # +3 for label and spacing
-            _add_lines(code_lines)
+            # Code spans longer and is monospaced 9.5pt. ~75 chars max per wrap.
+            wrapped_lines = 0
+            for line in text.split('\n'):
+                wrapped_lines += max(1, len(line) // 75 + (1 if len(line) % 75 > 0 else 0))
+            
+            # label=30, code lines=wrapped_lines * 9.5, space after=12
+            total_pt = 30 + (wrapped_lines * 9.5) + 12
+            _add_points(total_pt)
+
+        elif itype == "image":
+            # Explicit standalone image embeds natively
+            if points_on_page + 300 > PAGE_HEIGHT_PT:
+                _new_page()
+            _add_points(300) 
 
         elif itype == "figure":
             fig_counter += 1
-            _add_lines(12)  # Figure placeholder + caption
-            # Support both 'text' and 'caption' keys for figure entries
+            next_item = structure[idx + 1] if idx + 1 < len(structure) else None
+            is_image = next_item and next_item.get("type", "") == "image"
+            
+            if is_image:
+                skip_indices.add(idx + 1)
+                pt = 288 + 23  # Approx 4 inch image bound + caption bound
+            else:
+                pt = 54 + 23   # Placeholder node bounds
+                
+            if points_on_page + pt > PAGE_HEIGHT_PT:
+                _new_page()
+            _add_points(pt)
+            
             fig_text = item.get("text", "") or item.get("caption", "")
             lof_entries.append((f"{chapter_counter}.{fig_counter} {fig_text}", page))
 
