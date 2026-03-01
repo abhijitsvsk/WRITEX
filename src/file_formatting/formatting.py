@@ -636,24 +636,30 @@ def _validate_document_structure(doc):
 
 
 def _add_page_numbers(doc, font_name):
-    # Simple footer page num
-    section = doc.sections[0]
-    footer = section.footer
-    p = footer.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run()
-    run.font.name = font_name
+    # Loop over all constructed sections to mathematically secure headers and footers mathematically
+    for section in doc.sections:
+        footer = section.footer
+        footer.is_linked_to_previous = False
+        p = footer.paragraphs[0]
+        
+        # Guard against double-injecting the PAGE field if it already exists
+        if p.text.strip():
+            p.clear()
+            
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run()
+        run.font.name = font_name
 
-    fldChar1 = OxmlElement("w:fldChar")
-    fldChar1.set(ns.qn("w:fldCharType"), "begin")
+        fldChar1 = OxmlElement("w:fldChar")
+        fldChar1.set(ns.qn("w:fldCharType"), "begin")
 
-    instrText = OxmlElement("w:instrText")
-    instrText.set(ns.qn("xml:space"), "preserve")
-    instrText.text = "PAGE"
+        instrText = OxmlElement("w:instrText")
+        instrText.set(ns.qn("xml:space"), "preserve")
+        instrText.text = "PAGE"
 
-    fldChar2 = OxmlElement("w:fldChar")
-    fldChar2.set(ns.qn("w:fldCharType"), "end")
+        fldChar2 = OxmlElement("w:fldChar")
+        fldChar2.set(ns.qn("w:fldCharType"), "end")
 
-    run._r.append(fldChar1)
-    run._r.append(instrText)
-    run._r.append(fldChar2)
+        run._r.append(fldChar1)
+        run._r.append(instrText)
+        run._r.append(fldChar2)

@@ -184,12 +184,12 @@ class ReportGenerator:
                 for c in analysis.classes:
                     valid_targets.append(c.name)
             
-            targets_str = ", ".join(valid_targets[:20]) if valid_targets else "core logic functions"
+            targets_str = ", ".join(valid_targets[:50]) if valid_targets else "core logic functions"
             
             if chapter_title == "Implementation":
-                code_rule = f"5. **MANDATORY CODE EXTRACTION**: Because this is the Implementation chapter, you MUST output 1 to 2 codebase snippets to illustrate the system's core algorithmic logic. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
+                code_rule = f"5. **MANDATORY CODE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets to illustrate the system's core algorithmic logic. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
             else:
-                code_rule = f"5. **CODE EXTRACTION ALLOWED**: You may output 1 codebase snippet to illustrate core logic if relevant to this section. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
+                code_rule = f"5. **CODE EXTRACTION ALLOWED**: You MUST output 1 to 2 codebase snippets to illustrate core logic if relevant to this section. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
 
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
