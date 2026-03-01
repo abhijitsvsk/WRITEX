@@ -38,7 +38,20 @@ def _estimate_toc_entries(structure):
             points_on_page -= PAGE_HEIGHT_PT
             page += 1
 
+    def to_roman(n):
+        val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+        syb = ["m", "cm", "d", "cd", "c", "xc", "l", "xl", "x", "ix", "v", "iv", "i"]
+        roman_num = ''
+        i = 0
+        while n > 0:
+            for _ in range(n // val[i]):
+                roman_num += syb[i]
+                n -= val[i]
+            i += 1
+        return roman_num
+
     skip_indices = set()
+    is_front_matter = True
 
     for idx, item in enumerate(structure):
         if idx in skip_indices:
@@ -47,13 +60,27 @@ def _estimate_toc_entries(structure):
         itype = item.get("type", "")
         text = item.get("text", "")
 
-        if itype in ("toc", "lof", "section_header", "institutional_header", "page_break"):
+        def get_display_page():
+            return to_roman(page) if is_front_matter else str(page)
+
+        if itype == "title":
+            _add_points(150)
+            
+        elif itype == "title_page_body":
+            _add_points(300)
+            
+        elif itype == "signature_block":
+            if points_on_page + 200 > PAGE_HEIGHT_PT:
+                _new_page()
+            _add_points(200)
+
+        elif itype in ("toc", "lof", "section_header", "institutional_header", "page_break"):
             _new_page()
             _add_points(60) # Typical heading height pt
             if itype == "section_header":
                 header_text = text.strip()
                 if header_text.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
-                    toc_entries.append((header_text.title(), 0, page))
+                    toc_entries.append((header_text.title(), 0, get_display_page()))
 
         elif itype == "chapter":
             chapter_counter += 1
@@ -65,11 +92,12 @@ def _estimate_toc_entries(structure):
                 # Arabic page '1' strictly begins at Chapter 1
                 page = 1
                 points_on_page = 0
+                is_front_matter = False
             else:
                 _new_page()
                 
             _add_points(64)  # 16pt=19.2 line height * 2 lines (avg) + 24pt after = 62.4 ~ 64
-            toc_entries.append((f"Chapter {chapter_counter} {text.title()}", 1, page))
+            toc_entries.append((f"Chapter {chapter_counter} {text.title()}", 1, get_display_page()))
 
         elif itype == "subheading":
             sub_counter += 1
@@ -79,7 +107,7 @@ def _estimate_toc_entries(structure):
                 _new_page()
             _add_points(47)
             prefix = f"{chapter_counter}.{sub_counter}"
-            toc_entries.append((f"{prefix} {text.title()}", 2, page))
+            toc_entries.append((f"{prefix} {text.title()}", 2, get_display_page()))
 
         elif itype == "subsubheading":
             subsub_counter += 1
@@ -88,7 +116,7 @@ def _estimate_toc_entries(structure):
                 _new_page()
             _add_points(36)
             prefix = f"{chapter_counter}.{sub_counter}.{subsub_counter}"
-            toc_entries.append((f"{prefix} {text.title()}", 3, page))
+            toc_entries.append((f"{prefix} {text.title()}", 3, get_display_page()))
 
         elif itype == "paragraph":
             text_len = len(text)
@@ -132,7 +160,7 @@ def _estimate_toc_entries(structure):
             _add_points(pt)
             
             fig_text = item.get("text", "") or item.get("caption", "")
-            lof_entries.append((f"{chapter_counter}.{fig_counter} {fig_text}", page))
+            lof_entries.append((f"{chapter_counter}.{fig_counter} {fig_text}", get_display_page()))
 
     return toc_entries, lof_entries
 
