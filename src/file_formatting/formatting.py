@@ -102,7 +102,9 @@ def _estimate_toc_entries(structure):
         elif itype == "figure":
             fig_counter += 1
             _add_lines(12)  # Figure placeholder + caption
-            lof_entries.append((f"{chapter_counter}.{fig_counter} {text}", page))
+            # Support both 'text' and 'caption' keys for figure entries
+            fig_text = item.get("text", "") or item.get("caption", "")
+            lof_entries.append((f"{chapter_counter}.{fig_counter} {fig_text}", page))
 
     return toc_entries, lof_entries
 
@@ -368,7 +370,7 @@ def generate_report(
 
     # --- Style Bootstrapping (Root Cause 2 Fix) ---
     # Ensure critical styles exist so the TOC/LOF fields don't silently fail.
-    required_styles = ["Heading 1", "Heading 2", "Caption"]
+    required_styles = ["Heading 1", "Heading 2", "Heading 3", "Caption"]
     for s_name in required_styles:
         try:
             _ = doc.styles[s_name]
@@ -666,7 +668,7 @@ def generate_report(
         # 9. FIGURE (NATIVE AST OBJECT)
         elif itype == "figure":
             counters["figure"] += 1
-            caption_clean = item.get("caption", "").strip()
+            caption_clean = (item.get("caption", "") or item.get("text", "")).strip()
             
             # --- IMAGE PLACEHOLDER OR ACTUAL IMAGE ---
             next_item = structure[idx + 1] if idx + 1 < len(structure) else None
