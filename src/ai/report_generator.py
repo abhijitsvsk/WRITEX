@@ -170,26 +170,22 @@ class ReportGenerator:
         ]
         
         figure_rule = "6. **STRICT DIAGRAM BAN**: You MUST NOT generate any `[Figure X.Y: Caption]` placeholders or diagrams whatsoever. The backend system will handle all figure insertions deterministically. Keep your output strictly textual."
-
-        code_rule = "5. **NO CODE EXTRACTION**: Do not use `[Extract Code: X]` tags. Discuss the system logic conceptually."
-        actual_code_context = ""
+        valid_targets = []
+        analysis = user_context.get("detailed_analysis")
+        if analysis:
+            for f in analysis.functions:
+                valid_targets.append(f.name)
+            for c in analysis.classes:
+                valid_targets.append(c.name)
         
-        tech_chapters = ["Implementation", "System Architecture", "System Analysis and Design", "Proposed System", "Methodology"]
-        if any(tc in chapter_title for tc in tech_chapters):
-            valid_targets = []
-            analysis = user_context.get("detailed_analysis")
-            if analysis:
-                for f in analysis.functions:
-                    valid_targets.append(f.name)
-                for c in analysis.classes:
-                    valid_targets.append(c.name)
-            
-            targets_str = ", ".join(valid_targets[:50]) if valid_targets else "core logic functions"
-            
-            if chapter_title == "Implementation":
-                code_rule = f"5. **MANDATORY CODE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets to illustrate the system's core algorithmic logic. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
-            else:
-                code_rule = f"5. **CODE EXTRACTION ALLOWED**: You MUST output 1 to 2 codebase snippets to illustrate core logic if relevant to this section. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate."
+        targets_str = ", ".join(valid_targets[:50]) if valid_targets else "core logic functions"
+        
+        code_rule = f"5. **DYNAMIC CODE EXTRACTION (CRITICAL)**: Analyze the entire content of this subsection. Identify exactly where inserting actual codebase snippets would enhance the technical depth and perfectly illustrate your concepts. You MUST strategically place 1 to 3 codebase snippets in this section. Use exactly this format: `[Extract Code: TargetName]` on a new line where the code should appear. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate targets."
+        
+        if chapter_title in ["Introduction", "Literature Survey", "Conclusions And Future Scope"]:
+            code_rule = "5. **NO CODE EXTRACTION**: Do not use `[Extract Code: X]` tags in this specific chapter. Discuss concepts strictly theoretically."
+        elif chapter_title == "Implementation":
+            code_rule = f"5. **MANDATORY CORE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets explaining the core logic. Identify exactly where in your paragraphs these snippets should be embedded. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}."
 
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
