@@ -10,13 +10,13 @@ from docx.enum.style import WD_STYLE_TYPE
 def _estimate_toc_entries(structure):
     """
     Tracks precise typographical PostScript points to calculate exact Word physical page breaks
-    by emulating font kerning boundaries, margins, and 1.5x physical line spacing.
+    by emulating A4 dimensions, font kerning boundaries, margins, and 1.5x physical line spacing.
     """
     toc_entries = []
     lof_entries = []
     
-    # 11 inches tall = 792 points. 1 inch margins top/bot = 144. Usable = 648 pt.
-    PAGE_HEIGHT_PT = 648
+    # A4 = 297mm = 841.89 points. 1 inch margins top/bot = 144. Usable = 698 pt.
+    PAGE_HEIGHT_PT = 698
     
     page = 1
     points_on_page = 0
@@ -68,21 +68,22 @@ def _estimate_toc_entries(structure):
             else:
                 _new_page()
                 
-            _add_points(61)  # 16pt * 2 lines (avg) + 24pt after
+            _add_points(64)  # 16pt=19.2 line height * 2 lines (avg) + 24pt after = 62.4 ~ 64
             toc_entries.append((f"Chapter {chapter_counter} {text.title()}", 1, page))
 
         elif itype == "subheading":
             sub_counter += 1
             subsub_counter = 0
-            # Space before=18, after=12, text=16. + Widow/Orphan protection bounds
-            if points_on_page + 46 + 40 > PAGE_HEIGHT_PT:
+            # Space before=18, after=12, text=14pt * 1.2 = 16.8pt. Total = 46.8 ~ 47
+            if points_on_page + 47 + 40 > PAGE_HEIGHT_PT: # include orphan protection
                 _new_page()
-            _add_points(46)
+            _add_points(47)
             prefix = f"{chapter_counter}.{sub_counter}"
             toc_entries.append((f"{prefix} {text.title()}", 2, page))
 
         elif itype == "subsubheading":
             subsub_counter += 1
+            # Space before=14, after=8, text=12pt * 1.2 = 14.4pt. Total = 36.4 ~ 36
             if points_on_page + 36 + 40 > PAGE_HEIGHT_PT:
                 _new_page()
             _add_points(36)
@@ -91,20 +92,23 @@ def _estimate_toc_entries(structure):
 
         elif itype == "paragraph":
             text_len = len(text)
-            # TNR 12pt approx 75 chars per line over a 6 inch body block width.
-            lines = max(1, text_len // 75 + (1 if text_len % 75 > 0 else 0))
-            # 1.5 spacing = 18pt per line. Margins before=6, after=12.
-            pt = lines * 18 + 18
+            # A4 width = 8.27". Left 1.5", Right 1.0" => usable width 5.77".
+            # 5.77 * 72 points = 415 points width.
+            # 12pt TNR ~6 points wide on average per char. 415 / 6 = ~69 chars per line.
+            lines = max(1, text_len // 65 + (1 if text_len % 65 > 0 else 0))
+            # Font 12pt line height = 14.4pt. 1.5 spacing = 21.6pt per line. Margins before=6, after=12 (18pt).
+            pt = lines * 21.6 + 18
             _add_points(pt)
 
         elif itype == "code_block":
-            # Code spans longer and is monospaced 9.5pt. ~75 chars max per wrap.
+            # Code spans longer and is monospaced 9.5pt.
+            # ~70 chars max per wrap.
             wrapped_lines = 0
             for line in text.split('\n'):
-                wrapped_lines += max(1, len(line) // 75 + (1 if len(line) % 75 > 0 else 0))
+                wrapped_lines += max(1, len(line) // 70 + (1 if len(line) % 70 > 0 else 0))
             
-            # label=30, code lines=wrapped_lines * 9.5, space after=12
-            total_pt = 30 + (wrapped_lines * 9.5) + 12
+            # label=30, code lines=wrapped_lines * 11.4pt, space after=12
+            total_pt = 30 + (wrapped_lines * 11.4) + 12
             _add_points(total_pt)
 
         elif itype == "image":
@@ -120,9 +124,9 @@ def _estimate_toc_entries(structure):
             
             if is_image:
                 skip_indices.add(idx + 1)
-                pt = 288 + 23  # Approx 4 inch image bound + caption bound
+                pt = 288 + 25  # Approx 4 inch image bound + caption bound
             else:
-                pt = 54 + 23   # Placeholder node bounds
+                pt = 54 + 25   # Placeholder node bounds
                 
             if points_on_page + pt > PAGE_HEIGHT_PT:
                 _new_page()
@@ -211,8 +215,11 @@ def generate_report(
     font_size = 12
     line_spacing = 1.5
 
-    # --- Margin Setup ---
+    # --- Margin Setup (Enforcing Strict A4 Geometry) ---
+    from docx.shared import Mm
     section = doc.sections[0]
+    section.page_width = Mm(210)
+    section.page_height = Mm(297)
     section.top_margin = Inches(1)
     section.bottom_margin = Inches(1)
     section.left_margin = Inches(1.5)  # Academic standard
