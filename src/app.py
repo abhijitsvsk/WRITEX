@@ -46,7 +46,7 @@ def run_formatting(text_content, api_key_val, style_name):
 
             buf = io.BytesIO()
             generate_report(data, buf, style_name=style_name)
-            st.download_button("Download", buf, "formatted.docx")
+            st.download_button("Download", buf.getvalue(), "formatted.docx")
         except Exception as e:
             st.error(str(e))
 

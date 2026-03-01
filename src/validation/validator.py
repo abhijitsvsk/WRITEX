@@ -146,9 +146,6 @@ class DocumentValidator:
         for item in structure:
             if item.get("type") == "toc":
                 # Inject LOF right before the Table of Contents
-                new_structure.append(
-                    {"type": "section_header", "text": "LIST OF FIGURES"}
-                )
                 new_structure.append({"type": "lof", "text": "LIST OF FIGURES"})
 
             new_structure.append(item)
