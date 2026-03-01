@@ -1,6 +1,7 @@
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.section import WD_SECTION
 from docx.oxml import OxmlElement, ns
 from docx.oxml.ns import qn
 from docx.enum.style import WD_STYLE_TYPE
@@ -172,6 +173,14 @@ def generate_report(
 
     seen_captions = set()  # Fix 4: Semantic Dedup captions
     skip_indices = set()
+    
+    # Enable Dual-Section Pagination (Front-Matter Roman Initialization)
+    if doc.sections:
+        sec1 = doc.sections[0]
+        pgNumType = OxmlElement('w:pgNumType')
+        pgNumType.set(ns.qn('w:fmt'), 'lowerRoman')
+        sec1._sectPr.append(pgNumType)
+
     for idx, item in enumerate(structure):
         if idx in skip_indices:
             continue
@@ -217,7 +226,15 @@ def generate_report(
             counters["subsub"] = 0
             counters["figure"] = 0
 
-            doc.add_page_break()
+            # Sever Front-Matter pagination logic and apply Arabic '1' to Chapter 1
+            if counters["chapter"] == 1:
+                new_sec = doc.add_section(WD_SECTION.NEW_PAGE)
+                pgNumType2 = OxmlElement("w:pgNumType")
+                pgNumType2.set(ns.qn("w:fmt"), "decimal")
+                pgNumType2.set(ns.qn("w:start"), "1")
+                new_sec._sectPr.append(pgNumType2)
+            else:
+                doc.add_page_break()
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
