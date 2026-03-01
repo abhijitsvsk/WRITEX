@@ -179,10 +179,10 @@ class DocumentCompiler:
                         "Abstract", summary.to_json(), context
                     ),
                 },
-                {"type": "section_header", "text": "List of Figures"},
-                {"type": "lof", "text": "List of Figures"},
-                {"type": "section_header", "text": "Contents"},
+                # TOC comes first (academic standard), then LOF
+                # No separate section_header needed — the toc/lof handlers create their own headings
                 {"type": "toc", "text": "Contents"},
+                {"type": "lof", "text": "List of Figures"},
             ]
         )
 

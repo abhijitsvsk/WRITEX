@@ -26,76 +26,8 @@ from src.file_formatting.formatting import generate_report
 from src.analysis.style_analyzer import StyleAnalyzer
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.ai.report_generator import ReportGenerator
-from src.core.compiler import DocumentCompiler
+from src.core.compiler import DocumentCompiler, REPORT_SCHEMA
 from src.validation.validator import DocumentValidator
-
-# --- ALL CONSTANTS ---
-REPORT_SCHEMA = [
-    {
-        "title": "Introduction",
-        "subsections": [
-            "Background",
-            "Problem Definition",
-            "Scope and Motivation",
-            "Objectives",
-            "Challenges",
-            "Assumptions",
-            "Societal / Industrial Relevance",
-            "Organization of the Report",
-        ],
-    },
-    {
-        "title": "Literature Survey",
-        "subsections": [
-            {
-                "title": "Summary and Gaps to be Filled",
-                "subsubsections": [
-                    "Existing Approaches",
-                    "Machine Learning Approaches",
-                    "Frameworks and Tools",
-                    "Advances in the Domain",
-                ],
-            },
-            "Review of Existing Approaches",
-        ],
-    },
-    {
-        "title": "Methodology",
-        "subsections": [
-            "Data Acquisition and Preprocessing",
-            "Classification",
-            "Verification and Prioritization",
-            "Visualization and Reporting",
-            {
-                "title": "Workflow Summary",
-                "subsubsections": [
-                    "Initialization and Setup",
-                    "User Configuration and Data Filtering",
-                    "Simulation Loop (Core Processing)",
-                    "User Actions and Response",
-                    "Final Output",
-                ],
-            },
-        ],
-    },
-    {
-        "title": "Implementation",
-        "subsections": [
-            "Tools and Technologies",
-            "Core Logic Implementation",
-            "Key Modules and Functions",
-            "Code Structure",
-        ],
-    },
-    {
-        "title": "Results and Discussion",
-        "subsections": ["Dataset Overview", "Experimental Output and Analysis"],
-    },
-    {
-        "title": "Conclusions and Future Scope",
-        "subsections": ["Conclusion", "Future Enhancements"],
-    },
-]
 
 
 def run_formatting(text_content, api_key_val, style_name):

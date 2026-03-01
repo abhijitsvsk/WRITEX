@@ -402,10 +402,6 @@ def generate_report(
         elif itype == "page_break":
             doc.add_page_break()
 
-        # 8. PAGE BREAK
-        elif itype == "page_break":
-            doc.add_page_break()
-
         # 8. CODE SNIPPET (NATIVE)
         elif itype == "code_block":
             # Add "Code:" label first
@@ -489,44 +485,18 @@ def generate_report(
                     shading_elm
                 )
 
-            # --- CAPTION ---
+            # --- CAPTION (Fully Deterministic — No Word Field Dependencies) ---
             p = doc.add_paragraph()
             p.style = doc.styles["Caption"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.paragraph_format.space_after = Pt(12)
             p.paragraph_format.line_spacing = 1.0  # Single spaced for figures
 
-            # EXACT FORMATTING PARITY: "3.1 Title" instead of "Figure 3.1 X: Title"
-            run = p.add_run(f"{counters['chapter']}.")
+            # Hardcoded caption: "Figure X.Y Caption" — no SEQ fields needed
+            caption_text = f"Figure {counters['chapter']}.{counters['figure']} {caption_clean}"
+            run = p.add_run(caption_text)
             run.font.name = font_name
             run.font.size = Pt(11)
-
-            # Inject the hidden SEQ field code for auto-numbering
-            fldChar1 = OxmlElement("w:fldChar")
-            fldChar1.set(ns.qn("w:fldCharType"), "begin")
-            instrText = OxmlElement("w:instrText")
-            instrText.set(ns.qn("xml:space"), "preserve")
-            # \s 1 resets the SEQ number at every Heading 1 (Chapter)
-            instrText.text = " SEQ Figure \\* ARABIC \\s 1 "
-            fldChar2 = OxmlElement("w:fldChar")
-            fldChar2.set(ns.qn("w:fldCharType"), "separate")
-
-            # Word requires a cached text result, otherwise it drops the field as corrupted
-            t = OxmlElement("w:t")
-            t.text = str(counters["figure"])
-
-            fldChar3 = OxmlElement("w:fldChar")
-            fldChar3.set(ns.qn("w:fldCharType"), "end")
-
-            run._r.append(fldChar1)
-            run._r.append(instrText)
-            run._r.append(fldChar2)
-            run._r.append(t)
-            run._r.append(fldChar3)
-
-            run2 = p.add_run(" " + caption_clean)
-            run2.font.name = font_name
-            run2.font.size = Pt(11)
 
         # 10. PARAGRAPH / BODY / PLACEHOLDERS
         else:
@@ -536,16 +506,11 @@ def generate_report(
 
             import re
 
-            # Code Extraction Tag
+            # Code Extraction Tag — skip rendering these, they should have been
+            # processed by the compiler. If any leak through, silently drop them.
             code_match = re.search(r"\[Extract Code:\s*(.*?)\]", text, re.IGNORECASE)
             if code_match:
-                # Expecting the precise codebase contents to be passed in through some context,
-                # but since `formatting.py` iterates `structure`, we need `app.py` to inject
-                # the actual code BEFORE sending it to formatting, or Formatting must accept a dict.
-                # Easiest way: app.py handles extraction from the codebase dictionary and replaces the tag
-                # with a `{"type": "code_block", "text": raw_code}` element.
-                # So we simply need to support `code_block` type!
-                pass  # Proceed. Support handled above.
+                continue  # Do NOT render extraction tags as visible text
 
             # The architecture now structurally guarantees that all figures are emitted natively as `{"type": "figure"}`.
             # Hallucinated `[Figure]` text inside generic paragraphs is stripped by the Compiler's parser layer.
@@ -653,8 +618,17 @@ def _add_page_numbers(doc, font_name):
         instrText.text = "PAGE"
 
         fldChar2 = OxmlElement("w:fldChar")
-        fldChar2.set(ns.qn("w:fldCharType"), "end")
+        fldChar2.set(ns.qn("w:fldCharType"), "separate")
+
+        # Cached display text for Word versions that don't auto-calc
+        cached_page = OxmlElement("w:t")
+        cached_page.text = "1"
+
+        fldChar3 = OxmlElement("w:fldChar")
+        fldChar3.set(ns.qn("w:fldCharType"), "end")
 
         run._r.append(fldChar1)
         run._r.append(instrText)
         run._r.append(fldChar2)
+        run._r.append(cached_page)
+        run._r.append(fldChar3)
