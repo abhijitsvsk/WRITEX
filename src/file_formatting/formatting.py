@@ -13,17 +13,33 @@ def _estimate_toc_entries(structure):
     (title, heading_level, estimated_page_number) tuples for the TOC,
     and a list of (caption, estimated_page_number) tuples for the LOF.
     
-    Page estimation: Every page_break, chapter, section_header, toc, lof,
-    and institutional_header increments the page counter.
+    Page estimation accounts for:
+    - Page-break-causing elements (chapters, section_headers, etc.)
+    - Content length (paragraphs consume ~3 lines each, page overflows at ~40 lines)
+    - Code blocks consuming more vertical space
     """
     toc_entries = []
     lof_entries = []
     page = 1  # Start at page 1 (front-matter)
+    lines_on_page = 0  # Track line consumption on current page
+    LINES_PER_PAGE = 38  # Approximate lines per page with margins
     chapter_counter = 0
     sub_counter = 0
     subsub_counter = 0
     fig_counter = 0
-    chapter_start_page = None  # Track where chapters begin
+    in_chapters = False  # Track when we enter the chapter section
+
+    def _new_page():
+        nonlocal page, lines_on_page
+        page += 1
+        lines_on_page = 0
+
+    def _add_lines(n):
+        nonlocal page, lines_on_page
+        lines_on_page += n
+        while lines_on_page >= LINES_PER_PAGE:
+            lines_on_page -= LINES_PER_PAGE
+            page += 1
 
     for item in structure:
         itype = item.get("type", "")
@@ -31,11 +47,18 @@ def _estimate_toc_entries(structure):
 
         # These types cause a new page
         if itype in ("toc", "lof", "section_header", "institutional_header", "page_break"):
-            page += 1
+            _new_page()
+            _add_lines(4)  # Heading consumes ~4 lines
             if itype == "section_header":
                 header_text = text.strip()
                 if header_text.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
                     toc_entries.append((header_text.title(), 0, page))
+            elif itype == "toc":
+                # TOC itself will consume roughly 1 line per heading + 4 for the heading
+                # We'll estimate this after we know how many entries there are
+                _add_lines(15)  # Rough estimate for TOC content
+            elif itype == "lof":
+                _add_lines(8)  # Rough estimate for LOF content
 
         elif itype == "chapter":
             chapter_counter += 1
@@ -44,25 +67,41 @@ def _estimate_toc_entries(structure):
             fig_counter = 0
             if chapter_counter == 1:
                 # Section break resets page to 1
-                chapter_start_page = 1
+                in_chapters = True
                 page = 1
+                lines_on_page = 0
             else:
-                page += 1
+                _new_page()
+            _add_lines(5)  # Chapter heading consumes ~5 lines
             toc_entries.append((f"Chapter {chapter_counter} {text.title()}", 1, page))
 
         elif itype == "subheading":
             sub_counter += 1
             subsub_counter = 0
+            _add_lines(3)  # Subheading consumes ~3 lines
             prefix = f"{chapter_counter}.{sub_counter}"
             toc_entries.append((f"{prefix} {text.title()}", 2, page))
 
         elif itype == "subsubheading":
             subsub_counter += 1
+            _add_lines(2)
             prefix = f"{chapter_counter}.{sub_counter}.{subsub_counter}"
             toc_entries.append((f"{prefix} {text.title()}", 3, page))
 
+        elif itype == "paragraph":
+            # Estimate lines based on text length (~80 chars per line)
+            text_len = len(text)
+            estimated_lines = max(2, text_len // 80 + 1)
+            _add_lines(estimated_lines)
+
+        elif itype == "code_block":
+            # Code blocks are typically longer
+            code_lines = text.count('\n') + 3  # +3 for label and spacing
+            _add_lines(code_lines)
+
         elif itype == "figure":
             fig_counter += 1
+            _add_lines(12)  # Figure placeholder + caption
             lof_entries.append((f"{chapter_counter}.{fig_counter} {text}", page))
 
     return toc_entries, lof_entries
@@ -596,7 +635,7 @@ def _validate_document_structure(doc):
 
 
 def _add_page_numbers(doc, font_name):
-    # Loop over all constructed sections to mathematically secure headers and footers mathematically
+    """Add professional page numbers to all document sections."""
     for section in doc.sections:
         footer = section.footer
         footer.is_linked_to_previous = False
@@ -607,8 +646,17 @@ def _add_page_numbers(doc, font_name):
             p.clear()
             
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Professional format: "— PAGE —"
+        # Add left dash
+        run_left = p.add_run("\u2014 ")
+        run_left.font.name = font_name
+        run_left.font.size = Pt(10)
+        
+        # Add PAGE field
         run = p.add_run()
         run.font.name = font_name
+        run.font.size = Pt(10)
 
         fldChar1 = OxmlElement("w:fldChar")
         fldChar1.set(ns.qn("w:fldCharType"), "begin")
@@ -632,3 +680,9 @@ def _add_page_numbers(doc, font_name):
         run._r.append(fldChar2)
         run._r.append(cached_page)
         run._r.append(fldChar3)
+        
+        # Add right dash
+        run_right = p.add_run(" \u2014")
+        run_right.font.name = font_name
+        run_right.font.size = Pt(10)
+
