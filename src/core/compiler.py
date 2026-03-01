@@ -449,7 +449,11 @@ class DocumentCompiler:
                 extracted = False
                 analysis_data = context.get("detailed_analysis")
 
+                if not hasattr(self, "extracted_code_snippets"):
+                    self.extracted_code_snippets = set()
+
                 if analysis_data and hasattr(analysis_data, "code_snippets"):
+                    # Pass 1: Try to find the LLM's requested target if it hasn't been emitted yet
                     for file_path, snippets in analysis_data.code_snippets.items():
                         for snippet_tuple in snippets:
                             if len(snippet_tuple) == 3:
@@ -458,28 +462,37 @@ class DocumentCompiler:
                                     f"def {target_name}" in code_str
                                     or f"class {target_name}" in code_str
                                     or target_name in code_str
-                                ):
-                                    sub_structure.append(
-                                        {
-                                            "type": "paragraph",
-                                            "text": f"The implementation of {target_name} is shown below:",
-                                        }
-                                    )
-                                    sub_structure.append(
-                                        {"type": "code_block", "text": code_str}
-                                    )
+                                ) and code_str not in self.extracted_code_snippets:
+                                    sub_structure.append({"type": "paragraph", "text": f"The implementation of {target_name} is shown below:"})
+                                    sub_structure.append({"type": "code_block", "text": code_str})
+                                    self.extracted_code_snippets.add(code_str)
                                     extracted = True
                                     break
                         if extracted:
                             break
 
-                if not extracted:
-                    sub_structure.append(
-                        {
-                            "type": "paragraph",
-                            "text": f"[Error: Code for {target_name} could not be extracted dynamically from the project zip.]",
-                        }
-                    )
+                    # Pass 2: If the requested target was already used (duplicated by LLM) or hallucinated, 
+                    # fallback to the next available genuine unseen snippet from the project AST.
+                    if not extracted:
+                        for file_path, snippets in analysis_data.code_snippets.items():
+                            for snippet_tuple in snippets:
+                                if len(snippet_tuple) == 3:
+                                    fallback_str = snippet_tuple[2]
+                                    if fallback_str not in self.extracted_code_snippets:
+                                        # Autodetect name for contextual fallback
+                                        auto_name = target_name
+                                        import re as regex
+                                        match = regex.search(r'(?:def|class)\s+([a-zA-Z0-9_]+)', fallback_str)
+                                        if match:
+                                            auto_name = match.group(1)
+                                            
+                                        sub_structure.append({"type": "paragraph", "text": f"The implementation of {auto_name} is shown below:"})
+                                        sub_structure.append({"type": "code_block", "text": fallback_str})
+                                        self.extracted_code_snippets.add(fallback_str)
+                                        extracted = True
+                                        break
+                            if extracted:
+                                break
             else:
                 sub_structure.append({"type": "paragraph", "text": line})
 
