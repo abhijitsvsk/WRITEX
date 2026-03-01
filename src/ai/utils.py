@@ -20,7 +20,7 @@ telemetry_data = {
 TARGET_MODEL_VERSION = "llama-3.1-8b-instant"
 
 
-def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5):
+def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5, response_format=None):
     """
     Generates content using the provided AI model (Groq/Llama 3) with exponential backoff for rate limits.
 
@@ -30,6 +30,7 @@ def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5
         config: Optional generation config (dict or GenerationConfig).
         max_retries: Maximum number of retries (default 5).
         base_delay: Initial delay in seconds (default 2).
+        response_format: Optional JSON enforcement format (e.g. {"type": "json_object"}).
 
     Returns:
         The generated text content.
@@ -44,16 +45,20 @@ def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5
         try:
             # Check if model object has 'chat' attribute (Groq client)
             if hasattr(model, "chat"):
-                completion = model.chat.completions.create(
-                    model=TARGET_MODEL_VERSION,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.0,
-                    max_tokens=2048,
-                    top_p=0.05,
-                    seed=42,
-                    stop=None,
-                    stream=False,
-                )
+                kwargs = {
+                    "model": TARGET_MODEL_VERSION,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.0,
+                    "max_tokens": 2048,
+                    "top_p": 0.05,
+                    "seed": 42,
+                    "stop": None,
+                    "stream": False,
+                }
+                if response_format:
+                    kwargs["response_format"] = response_format
+
+                completion = model.chat.completions.create(**kwargs)
                 return completion.choices[0].message.content
             else:
                 # Fallback for other potential clients or mocked objects

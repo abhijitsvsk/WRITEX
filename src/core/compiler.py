@@ -434,18 +434,48 @@ class DocumentCompiler:
         All other chapters will render the tag as standard paragraph text to prevent code leakage.
         """
         sub_structure = []
-        if "[Extract Code" not in body_text:
-            sub_structure.append({"type": "paragraph", "text": body_text})
-            return sub_structure
+        
+        try:
+            # Attempt to parse the new strict JSON format
+            import json
+            data = json.loads(body_text)
+            blocks = data.get("blocks", [])
+            is_json = True
+        except (json.JSONDecodeError, TypeError):
+            # Fallback for old cache or if model disobeyed
+            blocks = []
+            for line in body_text.split("\n"):
+                if line.strip():
+                    blocks.append({"type": "paragraph", "text": line.strip()})
+            is_json = False
 
-        for line in body_text.split("\n"):
-            line = line.strip()
-            if not line:
+        for block in blocks:
+            if not isinstance(block, dict):
                 continue
-
-            code_match = re.search(r"\[Extract Code:\s*(.*?)\]", line, re.IGNORECASE)
-            if code_match:
-                target_name = code_match.group(1).strip()
+                
+            block_type = block.get("type", "paragraph")
+            
+            # Handle standard paragraph text
+            if block_type == "paragraph":
+                text = block.get("text", "")
+                if text:
+                    # Regex fallback for legacy strings containing Extract Code tags inside text paragraphs
+                    code_match = re.search(r"\[Extract Code:\s*(.*?)\]", text, re.IGNORECASE)
+                    if code_match and not is_json:
+                        block_type = "code_extraction"
+                        block["target_name"] = code_match.group(1).strip()
+                    else:
+                        sub_structure.append({"type": "paragraph", "text": text})
+                        continue
+                else:
+                    continue
+                
+            # Handle Code Extraction Target Maps
+            target_name = None
+            if block_type == "code_extraction":
+                target_name = block.get("target_name")
+                    
+            if target_name:
                 extracted = False
                 analysis_data = context.get("detailed_analysis")
 
@@ -493,8 +523,6 @@ class DocumentCompiler:
                                         break
                             if extracted:
                                 break
-            else:
-                sub_structure.append({"type": "paragraph", "text": line})
 
         return sub_structure
 

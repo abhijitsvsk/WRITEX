@@ -180,12 +180,12 @@ class ReportGenerator:
         
         targets_str = ", ".join(valid_targets[:50]) if valid_targets else "core logic functions"
         
-        code_rule = f"5. **DYNAMIC CODE EXTRACTION (CRITICAL)**: Analyze the entire content of this subsection. Identify exactly where inserting actual codebase snippets would enhance the technical depth and perfectly illustrate your concepts. You MUST strategically place 1 to 3 codebase snippets in this section. Use exactly this format: `[Extract Code: TargetName]` on a new line where the code should appear. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate targets."
+        code_rule = f"5. **DYNAMIC CODE EXTRACTION (CRITICAL)**: Analyze the entire content of this subsection. Identify exactly where inserting actual codebase snippets would enhance the technical depth and perfectly illustrate your concepts. You MUST strategically place 1 to 3 codebase snippets in this section. To extract code, output a block object of type 'code_extraction' with the 'target_name' key. YOU MUST ONLY pick from these valid targets: {targets_str}. Do not hallucinate targets."
         
         if chapter_title in ["Introduction", "Literature Survey", "Conclusions And Future Scope"]:
-            code_rule = "5. **NO CODE EXTRACTION**: Do not use `[Extract Code: X]` tags in this specific chapter. Discuss concepts strictly theoretically."
+            code_rule = "5. **NO CODE EXTRACTION**: Do not request any codebase snippets. Discuss concepts strictly theoretically."
         elif chapter_title == "Implementation":
-            code_rule = f"5. **MANDATORY CORE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets explaining the core logic. Identify exactly where in your paragraphs these snippets should be embedded. Use exactly this format: `[Extract Code: TargetName]` on a new line. YOU MUST ONLY pick from these valid targets: {targets_str}."
+            code_rule = f"5. **MANDATORY CORE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets explaining the core logic. To extract code, output a block object of type 'code_extraction' with the 'target_name' key. YOU MUST ONLY pick from these valid targets: {targets_str}."
 
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
@@ -199,18 +199,33 @@ class ReportGenerator:
         Problem: {user_context.get('problem_statement')}{metrics_context}
         
         Task: Write the body text for the subsection: **"{subsection_title}"** (inside Chapter: "{chapter_title}").
+
+        OUTPUT FORMAT (CRITICAL JSON SCHEMA):
+        You MUST return a strictly valid JSON object. 
+        The JSON object must contain a single root key "blocks" containing a list of objects.
+        Each object in the "blocks" list must have a "type" key (either "paragraph" or "code_extraction").
+        - For text paragraphs, use type "paragraph" and put the academic text in the "text" key.
+        - For code extraction, use type "code_extraction" and put the exact function or class name from the valid targets list into the "target_name" key.
+        
+        JSON Example:
+        {{
+            "blocks": [
+                {{"type": "paragraph", "text": "This module is designed to handle user authentication and routing."}},
+                {{"type": "code_extraction", "target_name": "verify_user_password"}}
+            ]
+        }}
         
         CRITICAL NARRATIVE CONSTRAINTS (HARD RULES):
-        1. **NO HEADINGS**: Do NOT output markdown headings (no #, ##, ###). Write ONLY pure academic paragraphs.
-        2. **NO RAW CODE OR FILE NAMES**: Absolutely DO NOT mention specific Python filenames. Speak entirely in abstract system-level terminology (e.g., "The Text Preprocessing Module", "The Lexical Analyzer", etc.).
-        3. **ACADEMIC STORYTELLING**: You must synthesize a cohesive academic narrative based on the project data. Discuss the theoretical dataset (50 academic drafts), the ETL pipeline, system architectures, and rule-based evaluation logic (Parsing Accuracy, Formatting Consistency).
-        4. **LITERATURE SURVEY**: If you are writing for Chapter 2 (Literature Survey), you MUST synthesize a highly authentic comparative analysis of existing systems. Identify research gaps that this project solves. **CRITICAL: DO NOT insert ANY references, bibliographies, or IEEE citations [e.g., [1] J. Smith] into this chapter under any circumstances.**
+        1. **NO HEADINGS**: Do NOT output markdown headings (no #, ##, ###) in the paragraphs.
+        2. **NO RAW CODE OR FILE NAMES**: Absolutely DO NOT mention specific Python filenames within text paragraphs. Speak entirely in abstract system-level terminology.
+        3. **ACADEMIC STORYTELLING**: You must synthesize a cohesive academic narrative based on the project data. Discuss the theoretical dataset, the ETL pipeline, system architectures, etc.
+        4. **LITERATURE SURVEY**: If you are writing for Chapter 2, synthesize a highly authentic comparative analysis of existing systems. DO NOT insert ANY references, bibliographies, or IEEE citations.
         {code_rule}
         {figure_rule}
-        7. **STRICT LENGTH**: Write exactly 300-350 words. Do not trail off or include meta-commentary.
+        7. **STRICT LENGTH**: The combined text of all paragraphs should be roughly 300-350 words. Do not trail off or include meta-commentary.
         """
 
-        result = generate_with_retry(self.model, prompt)
+        result = generate_with_retry(self.model, prompt, response_format={"type": "json_object"})
         self.cache[cache_key] = result
         self._save_cache()
         return result
