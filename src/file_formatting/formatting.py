@@ -119,6 +119,15 @@ def _estimate_toc_entries(structure):
             toc_entries.append((f"{prefix} {text.title()}", 3, get_display_page()))
 
         elif itype == "paragraph":
+            text = text.strip()
+            if not text:
+                continue
+            
+            import re
+            code_match = re.search(r"\[Extract Code:\s*(.*?)\]", text, re.IGNORECASE)
+            if code_match:
+                continue
+
             text_len = len(text)
             # A4 width = 8.27". Left 1.5", Right 1.0" => usable width 5.77".
             # Empirically, Times New Roman 12pt fits ~85 real-world text characters on a 5.77-inch line.
