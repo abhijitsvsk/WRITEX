@@ -154,7 +154,7 @@ def generate_report(
         if itype == "toc":
             doc.add_page_break()
             p = doc.add_paragraph()
-            p.style = doc.styles["Heading 1"]
+            # Use Normal style (NOT Heading 1) to prevent TOC heading from indexing itself
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run = p.add_run("Table of Contents")
             run.font.name = font_name
@@ -170,7 +170,7 @@ def generate_report(
         elif itype == "lof":
             doc.add_page_break()
             p = doc.add_paragraph()
-            p.style = doc.styles["Heading 1"]
+            # Use Normal style (NOT Heading 1) to prevent LOF heading from indexing itself
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run = p.add_run("List of Figures")
             run.font.name = font_name
@@ -452,7 +452,7 @@ def generate_report(
             run.font.size = Pt(11)
 
             # Insert SEQ field code for the figure number
-            add_field_code(p, ' SEQ Figure \\* ARABIC ')
+            add_field_code(p, r' SEQ Figure \* ARABIC ')
 
             run = p.add_run(f" {caption_clean}")
             run.font.name = font_name
@@ -488,34 +488,47 @@ def generate_report(
     # --- POST-PROCESSING ---
 
     # ZERO-TOLERANCE WHITESPACE PURGE
-    # Iterate and destroy totally empty trailing paragraphs to prevent consecutive blank pages
-    for p in doc.paragraphs:
+    # Snapshot the list FIRST to avoid modifying during iteration (critical safety fix)
+    paragraphs_snapshot = list(doc.paragraphs)
+    for p in paragraphs_snapshot:
         if not p.text.strip():
-            # If the paragraph has no text, AND it doesn't contain special XML elements like Page Breaks or Shading, delete it.
-            has_break = False
-            for run in p.runs:
-                if '<w:br w:type="page"/>' in run._r.xml:
-                    has_break = True
-                    break
-
-            # Don't delete formatting nodes, structural breaks, embedded images, or SDT siblings
-            has_drawing = bool(p._element.xpath('.//*[local-name()="drawing"]'))
-            has_sdt_sibling = bool(
-                p._element.getnext() is not None and p._element.getnext().tag.endswith('}sdt')
-            ) or bool(
-                p._element.getprevious() is not None and p._element.getprevious().tag.endswith('}sdt')
-            )
             # Preserve paragraphs containing Word field codes (TOC, LOF, SEQ, PAGE)
             has_field = bool(p._element.xpath('.//*[local-name()="fldChar"]'))
+            if has_field:
+                continue
 
-            if (
-                not has_break
-                and not has_drawing
-                and not has_sdt_sibling
-                and not has_field
-                and not p.paragraph_format.element.xpath(".//w:shd")
-            ):
-                p._element.getparent().remove(p._element)
+            # Preserve page breaks
+            has_break = bool(p._element.xpath('.//*[local-name()="br"]'))
+            if has_break:
+                continue
+
+            # Preserve embedded images/drawings
+            has_drawing = bool(p._element.xpath('.//*[local-name()="drawing"]'))
+            if has_drawing:
+                continue
+
+            # Preserve paragraphs with shading (code blocks, placeholders)
+            has_shading = bool(p._element.xpath('.//*[local-name()="shd"]'))
+            if has_shading:
+                continue
+
+            # Preserve section break paragraphs
+            has_sectPr = bool(p._element.xpath('.//*[local-name()="sectPr"]'))
+            if has_sectPr:
+                continue
+
+            # Preserve SDT-adjacent paragraphs
+            has_sdt_sibling = (
+                (p._element.getnext() is not None and p._element.getnext().tag.endswith('}sdt'))
+                or (p._element.getprevious() is not None and p._element.getprevious().tag.endswith('}sdt'))
+            )
+            if has_sdt_sibling:
+                continue
+
+            # Safe to delete — truly empty paragraph with no structural role
+            parent = p._element.getparent()
+            if parent is not None:
+                parent.remove(p._element)
 
     _add_page_numbers(doc, font_name)
 
