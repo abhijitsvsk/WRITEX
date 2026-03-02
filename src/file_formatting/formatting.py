@@ -17,27 +17,36 @@ def create_attribute(element, name, value):
     element.set(qn(name), value)
 
 def add_field_code(paragraph, field_code):
-    run = paragraph.add_run()
-    
+    """Insert a Word field code using separate runs per OOXML spec."""
+    # Run 1: Field Begin
+    run1 = paragraph.add_run()
     fldChar1 = create_element('w:fldChar')
     create_attribute(fldChar1, 'w:fldCharType', 'begin')
-    run._r.append(fldChar1)
+    run1._r.append(fldChar1)
 
+    # Run 2: Field Instruction
+    run2 = paragraph.add_run()
     instrText = create_element('w:instrText')
     create_attribute(instrText, 'xml:space', 'preserve')
     instrText.text = field_code
-    run._r.append(instrText)
+    run2._r.append(instrText)
 
+    # Run 3: Separate marker
+    run3 = paragraph.add_run()
     fldChar2 = create_element('w:fldChar')
     create_attribute(fldChar2, 'w:fldCharType', 'separate')
-    run._r.append(fldChar2)
+    run3._r.append(fldChar2)
 
-    # Word may complain without proper text representation, but updateFields=true fixes it.
-    run._r.append(create_element('w:t'))
+    # Run 4: Placeholder display text (replaced by Word on update)
+    run4 = paragraph.add_run('Right-click to update field.')
+    run4.font.name = 'Times New Roman'
+    run4.font.size = Pt(12)
 
+    # Run 5: Field End
+    run5 = paragraph.add_run()
     fldChar3 = create_element('w:fldChar')
     create_attribute(fldChar3, 'w:fldCharType', 'end')
-    run._r.append(fldChar3)
+    run5._r.append(fldChar3)
 
 
 def add_table_of_contents(doc, heading_paragraph, structure=None):
@@ -50,7 +59,7 @@ def add_table_of_contents(doc, heading_paragraph, structure=None):
 
     p = doc.add_paragraph()
     # Field code for TOC: Levels 1-3, Hyperlinks, Outline levels
-    add_field_code(p, ' TOC \\o "1-3" \\h \\z \\u ')
+    add_field_code(p, r' TOC \o "1-3" \h \z \u ')
 
 
 def add_list_of_figures(doc, heading_paragraph, structure=None):
@@ -63,7 +72,7 @@ def add_list_of_figures(doc, heading_paragraph, structure=None):
 
     p = doc.add_paragraph()
     # Field code for LOF: Target Captions named "Figure"
-    add_field_code(p, ' TOC \\h \\z \\c "Figure" ')
+    add_field_code(p, r' TOC \h \z \c "Figure" ')
 
 
 def generate_report(
@@ -496,10 +505,14 @@ def generate_report(
             ) or bool(
                 p._element.getprevious() is not None and p._element.getprevious().tag.endswith('}sdt')
             )
+            # Preserve paragraphs containing Word field codes (TOC, LOF, SEQ, PAGE)
+            has_field = bool(p._element.xpath('.//*[local-name()="fldChar"]'))
+
             if (
                 not has_break
                 and not has_drawing
                 and not has_sdt_sibling
+                and not has_field
                 and not p.paragraph_format.element.xpath(".//w:shd")
             ):
                 p._element.getparent().remove(p._element)
