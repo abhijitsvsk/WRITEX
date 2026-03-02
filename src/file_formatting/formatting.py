@@ -197,17 +197,6 @@ def _estimate_toc_entries(structure):
             fig_text = item.get("text", "") or item.get("caption", "")
             lof_entries.append((f"{chapter_counter}.{fig_counter} {fig_text}", get_display_page()))
 
-    # Cache these globally so toc_patcher can read the AST calculated pages 
-    # instead of crashing Windows COM Interop.
-    global _GLOBAL_LAST_PAGES
-    _GLOBAL_LAST_PAGES = {}
-    import re
-    def _norm(t): return re.sub(r"\s+", " ", t).strip().lower()
-    for title, _, pg in toc_entries:
-        _GLOBAL_LAST_PAGES[_norm(title)] = str(pg)
-    for cap, pg in lof_entries:
-        _GLOBAL_LAST_PAGES[_norm(f"figure {cap}")] = str(pg)
-
     return toc_entries, lof_entries
 
 
@@ -714,6 +703,18 @@ def generate_report(
     import tempfile as _tempfile
     from src.file_formatting.toc_patcher import patch_toc_with_real_pages as _patch
 
+    # Pre-compute page cache without globals!
+    # Because Streamlit multi-threading / reloads wipe 'formatting.py' globals,
+    # we explicitly compute the exact layout right before patching.
+    import re
+    def _norm(t): return re.sub(r"\s+", " ", t).strip().lower()
+    page_cache = {}
+    toc_entries, lof_entries = _estimate_toc_entries(structure)
+    for title, _, pg in toc_entries:
+        page_cache[_norm(title)] = str(pg)
+    for cap, pg in lof_entries:
+        page_cache[_norm(f"figure {cap}")] = str(pg)
+
     if hasattr(output_path, "write"):
         # Caller supplied a file-like object (BytesIO, Django response, etc.)
         # Materialise a temp file so LibreOffice can read it.
@@ -721,14 +722,14 @@ def generate_report(
             _draft = _tmp.name
         doc.save(_draft)
         try:
-            _patch(_draft, _draft)          # patch in-place
+            _patch(_draft, _draft, page_cache=page_cache)          # patch in-place
             with open(_draft, "rb") as _f:
                 output_path.write(_f.read())
         finally:
             _os.unlink(_draft)
     else:
-        doc.save(output_path)               # pass 1: draft with "?" placeholders
-        _patch(output_path, output_path)    # pass 2: replace "?" with real pages
+        doc.save(output_path)                                       # pass 1: draft with "?" placeholders
+        _patch(output_path, output_path, page_cache=page_cache)     # pass 2: replace "?" with real pages
 
 
 def _validate_document_structure(doc):
