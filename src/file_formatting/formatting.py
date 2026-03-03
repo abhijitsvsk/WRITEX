@@ -11,21 +11,17 @@ def _postbuild_estimate_pages(doc):
     """
     POST-BUILD page estimator.  Walks the REAL built Document paragraphs
     (not the raw structure JSON) to calculate where page breaks fall.
-    
-    Returns a dict mapping heading/caption text → page number string.
     """
-    # A4 geometry (same as before, but now measuring real content)
-    PAGE_HEIGHT_PT = 698  # 841.89pt - 144pt margins
-
+    PAGE_HEIGHT_PT = 698
     page = 1
     points_on_page = 0
-    page_map = {}  # "heading text" → "page number"
+    page_map = {}
 
     for para in doc.paragraphs:
         text = para.text.strip()
         style_name = para.style.name if para.style else "Normal"
 
-        # --- Page break detection ---
+        # 1. Page breaks (from doc.add_page_break)
         has_page_break = False
         for run in para.runs:
             if '<w:br w:type="page"/>' in run._r.xml:
@@ -36,77 +32,68 @@ def _postbuild_estimate_pages(doc):
             points_on_page = 0
             continue
 
-        # --- Section break detection (sectPr in pPr) ---
-        has_section = bool(para._element.xpath('.//*[local-name()="sectPr"]'))
-        if has_section:
+        # 2. Section breaks (Next Page breaks added via doc.add_section)
+        # We only check for sectPr inside pPr (paragraph properties)
+        has_sect_break = bool(para._element.xpath('./w:pPr/w:sectPr'))
+        if has_sect_break:
             page += 1
             points_on_page = 0
             continue
 
-        # --- Skip empty paragraphs ---
         if not text:
+            # Empty paragraphs (spacing)
+            points_on_page += 12
             continue
 
-        # --- Measure this paragraph's height in points ---
+        # 3. Height Measurement
         pt = 0
-
         if style_name == "Heading 1":
-            # 16pt font, bold, ~64pt total with spacing
-            pt = 64
-            # Record heading for TOC mapping
+            # 16pt font + 24pt spacing = 40pt text + padding ≈ 88pt total
+            pt = 88
             page_map[text] = str(page)
-
         elif style_name == "Heading 2":
-            pt = 47
-            # Orphan protection: if heading + 2 lines don't fit, new page
-            if points_on_page + pt + 61 > PAGE_HEIGHT_PT:
-                page += 1
-                points_on_page = 0
+            # 14pt font + 30pt padding = 54pt
+            pt = 54
+            if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
+                page += 1; points_on_page = 0
             page_map[text] = str(page)
-
         elif style_name == "Heading 3":
-            pt = 36
-            if points_on_page + pt + 61 > PAGE_HEIGHT_PT:
-                page += 1
-                points_on_page = 0
+            pt = 44
+            if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
+                page += 1; points_on_page = 0
             page_map[text] = str(page)
-
         elif style_name == "Caption":
-            pt = 25
-            # Map caption for LOF (e.g. "Figure 1.1 System Architecture")
+            pt = 30
             page_map[text] = str(page)
-
         else:
-            # Normal paragraph — measure real text length
-            text_len = len(text)
-            # Times New Roman 12pt on 5.77" line ≈ 85 chars/line
-            lines = max(1, (text_len + 84) // 85)
+            # Title / Normal text
+            lines = max(1, (len(text) + 84) // 85)
+            # 12pt * 1.5 spacing ≈ 18pt/line + 4pt paragraph padding
+            pt = lines * 18 + 4
+            
+            # Specific Title Page logic
+            if "Course Project Report" in text: pt = 86
+            if style_name == "Normal" and para.alignment == 1: # Centered
+                pt = lines * 21 + 10 # Title page body
 
-            # Check if this is a code block (Courier New / shaded)
-            has_shading = bool(para._element.xpath('.//*[local-name()="shd"]'))
-            if has_shading:
-                # Code block: 9.5pt Courier, ~70 chars/line, single-spaced
-                code_lines = 0
-                for code_line in text.split('\n'):
-                    code_lines += max(1, (len(code_line) + 69) // 70)
-                pt = 30 + code_lines * 11.4 + 12
-            else:
-                # Body text: 12pt, 1.5 spacing = 21.3pt/line + 18pt margins
-                pt = lines * 21.3 + 18
-
-        # Check for drawings/images (they take substantial vertical space)
-        has_drawing = bool(para._element.xpath('.//*[local-name()="drawing"]'))
-        if has_drawing:
-            pt = max(pt, 300)  # ~4 inch image
+        # Check for images
+        if para._element.xpath('.//*[local-name()="drawing"]'):
+            pt = max(pt, 300)
             if points_on_page + pt > PAGE_HEIGHT_PT:
-                page += 1
-                points_on_page = 0
+                page += 1; points_on_page = 0
 
-        # Accumulate points and handle page overflow
         points_on_page += pt
         while points_on_page > PAGE_HEIGHT_PT:
             points_on_page -= PAGE_HEIGHT_PT
             page += 1
+
+    # Final pass: Account for Tables (Signature Blocks) which are not in doc.paragraphs
+    # Each signature block is usually ~150pt
+    for table in doc.tables:
+        page_map["[TABLE_REF]"] = str(page)
+        points_on_page += 150
+        if points_on_page > PAGE_HEIGHT_PT:
+            page += 1; points_on_page = 0
 
     return page_map
 
