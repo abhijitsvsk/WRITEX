@@ -75,7 +75,7 @@ def _estimate_toc_entries(structure):
         text = item.get("text", "")
 
         def get_display_page():
-            return to_roman(page) if is_front_matter else str(page)
+            return str(page)
 
         if itype == "title":
             _add_points(150)
@@ -321,11 +321,11 @@ def generate_report(
     seen_captions = set()  # Fix 4: Semantic Dedup captions
     skip_indices = set()
     
-    # Enable Dual-Section Pagination (Front-Matter Roman Initialization)
+    # Enable Pagination (Arabic numbers from the start)
     if doc.sections:
         sec1 = doc.sections[0]
         pgNumType = OxmlElement('w:pgNumType')
-        pgNumType.set(ns.qn('w:fmt'), 'lowerRoman')
+        pgNumType.set(ns.qn('w:fmt'), 'decimal')
         sec1._sectPr.append(pgNumType)
 
     for idx, item in enumerate(structure):
@@ -766,7 +766,7 @@ def _add_page_numbers(doc, font_name):
     """Add professional page numbers to all document sections."""
     for i, section in enumerate(doc.sections):
         footer = section.footer
-        # First section gets Roman numerals, subsequent sections get Arabic numerals.
+        # All sections use Arabic page numbers.
         # But both need the PAGE field injected.
         p = footer.paragraphs[0]
         
