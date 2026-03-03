@@ -193,6 +193,9 @@ def add_table_of_contents(doc, heading_paragraph, structure=None):
             if h.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
                 entries.append((h.title(), 0))
 
+        elif itype == "institutional_header":
+            entries.append((text.strip().title(), 0))
+
     for title, level in entries:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -381,8 +384,8 @@ def generate_report(
             p.style = doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-            # Use Title Case for Chapter Titles instead of ALL CAPS
-            run = p.add_run(f"Chapter {counters['chapter']}\n{text.title()}")
+            # Use Title Case for Chapter Titles
+            run = p.add_run(f"Chapter {counters['chapter']} {text.title()}")
             run.bold = True
             run.font.name = font_name
             run.font.size = Pt(16)
