@@ -7,211 +7,193 @@ from docx.oxml.ns import qn
 from docx.enum.style import WD_STYLE_TYPE
 
 
-def _estimate_toc_entries(structure):
+def _postbuild_estimate_pages(doc):
     """
-    Tracks precise typographical PostScript points to calculate exact Word physical page breaks
-    by emulating A4 dimensions, font kerning boundaries, margins, and 1.5x physical line spacing.
+    POST-BUILD page estimator.  Walks the REAL built Document paragraphs
+    (not the raw structure JSON) to calculate where page breaks fall.
+    
+    Returns a dict mapping heading/caption text → page number string.
     """
-    toc_entries = []
-    lof_entries = []
-    
-    # A4 = 297mm = 841.89 points. 1 inch margins top/bot = 144. Usable = 698 pt.
-    PAGE_HEIGHT_PT = 698
-    
+    # A4 geometry (same as before, but now measuring real content)
+    PAGE_HEIGHT_PT = 698  # 841.89pt - 144pt margins
+
     page = 1
     points_on_page = 0
-    chapter_counter = 0
-    sub_counter = 0
-    subsub_counter = 0
-    fig_counter = 0
+    page_map = {}  # "heading text" → "page number"
 
-    def _new_page():
-        nonlocal page, points_on_page
-        page += 1
-        points_on_page = 0
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        style_name = para.style.name if para.style else "Normal"
 
-    def _add_points(pt):
-        nonlocal page, points_on_page
+        # --- Page break detection ---
+        has_page_break = False
+        for run in para.runs:
+            if '<w:br w:type="page"/>' in run._r.xml:
+                has_page_break = True
+                break
+        if has_page_break:
+            page += 1
+            points_on_page = 0
+            continue
+
+        # --- Section break detection (sectPr in pPr) ---
+        has_section = bool(para._element.xpath('.//*[local-name()="sectPr"]'))
+        if has_section:
+            page += 1
+            points_on_page = 0
+            continue
+
+        # --- Skip empty paragraphs ---
+        if not text:
+            continue
+
+        # --- Measure this paragraph's height in points ---
+        pt = 0
+
+        if style_name == "Heading 1":
+            # 16pt font, bold, ~64pt total with spacing
+            pt = 64
+            # Record heading for TOC mapping
+            page_map[text] = str(page)
+
+        elif style_name == "Heading 2":
+            pt = 47
+            # Orphan protection: if heading + 2 lines don't fit, new page
+            if points_on_page + pt + 61 > PAGE_HEIGHT_PT:
+                page += 1
+                points_on_page = 0
+            page_map[text] = str(page)
+
+        elif style_name == "Heading 3":
+            pt = 36
+            if points_on_page + pt + 61 > PAGE_HEIGHT_PT:
+                page += 1
+                points_on_page = 0
+            page_map[text] = str(page)
+
+        elif style_name == "Caption":
+            pt = 25
+            # Map caption for LOF (e.g. "Figure 1.1 System Architecture")
+            page_map[text] = str(page)
+
+        else:
+            # Normal paragraph — measure real text length
+            text_len = len(text)
+            # Times New Roman 12pt on 5.77" line ≈ 85 chars/line
+            lines = max(1, (text_len + 84) // 85)
+
+            # Check if this is a code block (Courier New / shaded)
+            has_shading = bool(para._element.xpath('.//*[local-name()="shd"]'))
+            if has_shading:
+                # Code block: 9.5pt Courier, ~70 chars/line, single-spaced
+                code_lines = 0
+                for code_line in text.split('\n'):
+                    code_lines += max(1, (len(code_line) + 69) // 70)
+                pt = 30 + code_lines * 11.4 + 12
+            else:
+                # Body text: 12pt, 1.5 spacing = 21.3pt/line + 18pt margins
+                pt = lines * 21.3 + 18
+
+        # Check for drawings/images (they take substantial vertical space)
+        has_drawing = bool(para._element.xpath('.//*[local-name()="drawing"]'))
+        if has_drawing:
+            pt = max(pt, 300)  # ~4 inch image
+            if points_on_page + pt > PAGE_HEIGHT_PT:
+                page += 1
+                points_on_page = 0
+
+        # Accumulate points and handle page overflow
         points_on_page += pt
         while points_on_page > PAGE_HEIGHT_PT:
-            # Document fragmentation (Word wrapping text across boundaries natively)
             points_on_page -= PAGE_HEIGHT_PT
             page += 1
 
-    def to_roman(n):
-        val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
-        syb = ["m", "cm", "d", "cd", "c", "xc", "l", "xl", "x", "ix", "v", "iv", "i"]
-        roman_num = ''
-        i = 0
-        while n > 0:
-            for _ in range(n // val[i]):
-                roman_num += syb[i]
-                n -= val[i]
-            i += 1
-        return roman_num
+    return page_map
 
-    # Pre-scan total items to accurately lay out physical space taken by the TOC/LOF themselves
-    _toc_item_count = 0
-    _lof_item_count = 0
-    for item in structure:
-        _i = item.get("type", "")
-        if _i in ("chapter", "subheading", "subsubheading"):
-            _toc_item_count += 1
-        elif _i == "section_header":
-            _h = item.get("text", "").strip()
-            if _h.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
-                _toc_item_count += 1
-        elif _i == "figure":
-            _lof_item_count += 1
 
-    skip_indices = set()
-    is_front_matter = True
+def _patch_toc_lof_pages(doc, page_map):
+    """
+    Walk the built Document and replace every '?' placeholder in TOC/LOF
+    entries with the real page number from page_map.
+    
+    Works INLINE on the Document object — no temp file needed.
+    """
+    import re
+    def _norm(t):
+        return re.sub(r"\s+", " ", t).strip().lower()
 
-    for idx, item in enumerate(structure):
-        if idx in skip_indices:
+    patched = 0
+    missed = 0
+
+    for para in doc.paragraphs:
+        if "\t?" not in para.text:
             continue
-            
-        itype = item.get("type", "")
-        text = item.get("text", "")
 
-        def get_display_page():
-            return str(page)
+        # Extract title (everything before the tab)
+        title = para.text.split("\t")[0].strip()
 
-        if itype == "title":
-            _add_points(150)
-            
-        elif itype == "title_page_body":
-            _add_points(300)
-            
-        elif itype == "signature_block":
-            if points_on_page + 200 > PAGE_HEIGHT_PT:
-                _new_page()
-            _add_points(200)
+        # Look up page number — try exact match first, then normalized
+        real_page = page_map.get(title)
+        if not real_page:
+            norm_title = _norm(title)
+            for key, val in page_map.items():
+                if _norm(key) == norm_title:
+                    real_page = val
+                    break
 
-        elif itype in ("toc", "lof", "section_header", "institutional_header", "page_break"):
-            _new_page()
-            
-            if itype == "toc":
-                # 60pt for 'Table of Contents' header + 18pt per entry (12pt font*1.15 spacing + 4pt margin)
-                _add_points(60 + _toc_item_count * 18)
-            elif itype == "lof":
-                _add_points(60 + _lof_item_count * 18)
-            elif itype == "page_break":
-                _add_points(0)
-            else:
-                _add_points(60) # Typical heading height pt
-                
-            if itype == "section_header":
-                header_text = text.strip()
-                if header_text.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
-                    toc_entries.append((header_text.title(), 0, get_display_page()))
+        if real_page:
+            for run in para.runs:
+                if run.text.endswith("?"):
+                    run.text = run.text[:-1] + real_page
+                    patched += 1
+                    break
+        else:
+            missed += 1
+            print(f"[PAGE ESTIMATOR] Unresolved: '{title}'")
 
-        elif itype == "chapter":
-            chapter_counter += 1
-            sub_counter = 0
-            subsub_counter = 0
-            fig_counter = 0
-            
-            if chapter_counter == 1:
-                # Arabic page '1' strictly begins at Chapter 1
-                page = 1
-                points_on_page = 0
-                is_front_matter = False
-            else:
-                _new_page()
-                
-            _add_points(64)  # 16pt=19.2 line height * 2 lines (avg) + 24pt after = 62.4 ~ 64
-            toc_entries.append((f"Chapter {chapter_counter} {text.title()}", 1, get_display_page()))
+    print(f"[PAGE ESTIMATOR] Patched {patched} entries, {missed} unresolved.")
 
-        elif itype == "subheading":
-            sub_counter += 1
-            subsub_counter = 0
-            # Space before=18, after=12, text=14pt * 1.2 = 16.8pt. Total = 46.8 ~ 47
-            # Word's 'Keep with next' requires 2 lines of text (61.2pt) below the heading to prevent jumping.
-            if points_on_page + 47 + 61 > PAGE_HEIGHT_PT: # strict orphan protection
-                _new_page()
-            _add_points(47)
-            prefix = f"{chapter_counter}.{sub_counter}"
-            toc_entries.append((f"{prefix} {text.title()}", 2, get_display_page()))
-
-        elif itype == "subsubheading":
-            subsub_counter += 1
-            # Space before=14, after=8, text=12pt * 1.2 = 14.4pt. Total = 36.4 ~ 36
-            if points_on_page + 36 + 61 > PAGE_HEIGHT_PT:
-                _new_page()
-            _add_points(36)
-            prefix = f"{chapter_counter}.{sub_counter}.{subsub_counter}"
-            toc_entries.append((f"{prefix} {text.title()}", 3, get_display_page()))
-
-        elif itype == "paragraph":
-            text = text.strip()
-            if not text:
-                continue
-            
-            import re
-            code_match = re.search(r"\[Extract Code:\s*(.*?)\]", text, re.IGNORECASE)
-            if code_match:
-                continue
-
-            text_len = len(text)
-            # A4 width = 8.27". Left 1.5", Right 1.0" => usable width 5.77".
-            # Empirically, Times New Roman 12pt fits ~85 real-world text characters on a 5.77-inch line.
-            lines = max(1, text_len // 85 + (1 if text_len % 85 > 0 else 0))
-            # Font 12pt line height = 14.4pt. 1.5 spacing = 21.6pt per line. Margins before=6, after=12 (18pt).
-            # Slight tuning factor required to match exact MS Word rendering engine font kerning drift over 100 pages.
-            pt = lines * 21.3 + 18
-            _add_points(pt)
-
-        elif itype == "code_block":
-            # Code spans longer and is monospaced 9.5pt.
-            # ~70 chars max per wrap.
-            wrapped_lines = 0
-            for line in text.split('\n'):
-                wrapped_lines += max(1, len(line) // 70 + (1 if len(line) % 70 > 0 else 0))
-            
-            # label=30, code lines=wrapped_lines * 11.4pt, space after=12
-            total_pt = 30 + (wrapped_lines * 11.4) + 12
-            _add_points(total_pt)
-
-        elif itype == "image":
-            # Explicit standalone image embeds natively
-            if points_on_page + 300 > PAGE_HEIGHT_PT:
-                _new_page()
-            _add_points(300) 
-
-        elif itype == "figure":
-            fig_counter += 1
-            next_item = structure[idx + 1] if idx + 1 < len(structure) else None
-            is_image = next_item and next_item.get("type", "") == "image"
-            
-            if is_image:
-                skip_indices.add(idx + 1)
-                pt = 288 + 25  # Approx 4 inch image bound + caption bound
-            else:
-                pt = 54 + 25   # Placeholder node bounds
-                
-            if points_on_page + pt > PAGE_HEIGHT_PT:
-                _new_page()
-            _add_points(pt)
-            
-            fig_text = item.get("text", "") or item.get("caption", "")
-            lof_entries.append((f"{chapter_counter}.{fig_counter} {fig_text}", get_display_page()))
-
-    return toc_entries, lof_entries
 
 
 def add_table_of_contents(doc, heading_paragraph, structure=None):
     """
     Builds a static Table of Contents with dot leaders and "?" placeholder page
-    numbers.  The real page numbers are resolved in a second pass by
-    toc_patcher.patch_toc_with_real_pages() after LibreOffice renders the PDF.
+    numbers. The real page numbers are patched post-build by _patch_toc_lof_pages.
     """
     if not structure:
         return
 
-    toc_entries, _ = _estimate_toc_entries(structure)
+    # Extract TOC entries directly from the structure
+    chapter = 0
+    sub = 0
+    subsub = 0
+    entries = []  # (title, level)
 
-    for title, level, _page_num in toc_entries:   # _page_num intentionally ignored
+    for item in structure:
+        itype = item.get("type", "")
+        text = item.get("text", "")
+
+        if itype == "chapter":
+            chapter += 1
+            sub = 0
+            subsub = 0
+            entries.append((f"Chapter {chapter} {text.title()}", 1))
+
+        elif itype == "subheading":
+            sub += 1
+            subsub = 0
+            entries.append((f"{chapter}.{sub} {text.title()}", 2))
+
+        elif itype == "subsubheading":
+            subsub += 1
+            entries.append((f"{chapter}.{sub}.{subsub} {text.title()}", 3))
+
+        elif itype == "section_header":
+            h = text.strip()
+            if h.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
+                entries.append((h.title(), 0))
+
+    for title, level in entries:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
@@ -224,7 +206,7 @@ def add_table_of_contents(doc, heading_paragraph, structure=None):
         tab_stops = p.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(5.5), WD_ALIGN_PARAGRAPH.RIGHT, 2)
 
-        entry_text = f"{title}\t?"          # <-- placeholder; patched in pass 2
+        entry_text = f"{title}\t?"          # <-- placeholder; patched post-build
         run = p.add_run(entry_text)
         run.font.name = "Times New Roman"
         run.font.size = Pt(12)
@@ -235,15 +217,27 @@ def add_table_of_contents(doc, heading_paragraph, structure=None):
 def add_list_of_figures(doc, heading_paragraph, structure=None):
     """
     Builds a static List of Figures with dot leaders and "?" placeholder page
-    numbers.  The real page numbers are resolved in a second pass by
-    toc_patcher.patch_toc_with_real_pages() after LibreOffice renders the PDF.
+    numbers. The real page numbers are patched post-build by _patch_toc_lof_pages.
     """
     if not structure:
         return
 
-    _, lof_entries = _estimate_toc_entries(structure)
+    # Extract figure entries directly from the structure
+    chapter = 0
+    fig = 0
+    entries = []  # (caption_text,)
 
-    for caption, _page_num in lof_entries:    # _page_num intentionally ignored
+    for item in structure:
+        itype = item.get("type", "")
+        if itype == "chapter":
+            chapter += 1
+            fig = 0
+        elif itype == "figure":
+            fig += 1
+            caption = item.get("caption", "") or item.get("text", "")
+            entries.append(f"{chapter}.{fig} {caption}")
+
+    for caption in entries:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p.paragraph_format.space_before = Pt(2)
@@ -253,7 +247,7 @@ def add_list_of_figures(doc, heading_paragraph, structure=None):
         tab_stops = p.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(5.5), WD_ALIGN_PARAGRAPH.RIGHT, 2)
 
-        entry_text = f"Figure {caption}\t?"  # <-- placeholder; patched in pass 2
+        entry_text = f"Figure {caption}\t?"  # <-- placeholder; patched post-build
         run = p.add_run(entry_text)
         run.font.name = "Times New Roman"
         run.font.size = Pt(12)
@@ -698,38 +692,16 @@ def generate_report(
     _validate_document_structure(doc)
 
     # Save
-    # ── Two-pass save: draft → LibreOffice PDF → patch page numbers ──────────
-    import os as _os
-    import tempfile as _tempfile
-    from src.file_formatting.toc_patcher import patch_toc_with_real_pages as _patch
+    # ── Post-build page estimation: walk the real doc → patch placeholders → save ──
+    print("[PAGE ESTIMATOR] Running post-build page estimation on actual document...")
+    page_map = _postbuild_estimate_pages(doc)
+    _patch_toc_lof_pages(doc, page_map)
 
-    # Pre-compute page cache without globals!
-    # Because Streamlit multi-threading / reloads wipe 'formatting.py' globals,
-    # we explicitly compute the exact layout right before patching.
-    import re
-    def _norm(t): return re.sub(r"\s+", " ", t).strip().lower()
-    page_cache = {}
-    toc_entries, lof_entries = _estimate_toc_entries(structure)
-    for title, _, pg in toc_entries:
-        page_cache[_norm(title)] = str(pg)
-    for cap, pg in lof_entries:
-        page_cache[_norm(f"figure {cap}")] = str(pg)
-
+    # Single-pass save — no temp files, no external patchers
     if hasattr(output_path, "write"):
-        # Caller supplied a file-like object (BytesIO, Django response, etc.)
-        # Materialise a temp file so LibreOffice can read it.
-        with _tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as _tmp:
-            _draft = _tmp.name
-        doc.save(_draft)
-        try:
-            _patch(_draft, _draft, page_cache=page_cache)          # patch in-place
-            with open(_draft, "rb") as _f:
-                output_path.write(_f.read())
-        finally:
-            _os.unlink(_draft)
+        doc.save(output_path)
     else:
-        doc.save(output_path)                                       # pass 1: draft with "?" placeholders
-        _patch(output_path, output_path, page_cache=page_cache)     # pass 2: replace "?" with real pages
+        doc.save(output_path)
 
 
 def _validate_document_structure(doc):
