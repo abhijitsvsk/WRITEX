@@ -9,91 +9,100 @@ from docx.enum.style import WD_STYLE_TYPE
 
 def _postbuild_estimate_pages(doc):
     """
-    POST-BUILD page estimator.  Walks the REAL built Document paragraphs
-    (not the raw structure JSON) to calculate where page breaks fall.
+    POST-BUILD page estimator.  Walks ALL body elements (paragraphs and tables)
+    to calculate where page breaks fall with high fidelity.
     """
     PAGE_HEIGHT_PT = 698
     page = 1
     points_on_page = 0
     page_map = {}
 
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        style_name = para.style.name if para.style else "Normal"
+    # Interleave paragraphs and tables in original document order
+    elements = []
+    # Identify positions in body
+    for p in doc.paragraphs:
+        elements.append((p._element.getparent().index(p._element), "PARA", p))
+    for t in doc.tables:
+        elements.append((t._element.getparent().index(t._element), "TABLE", t))
+    
+    # Sort by original XML order
+    elements.sort(key=lambda x: x[0])
 
-        # 1. Page breaks (from doc.add_page_break)
-        has_page_break = False
-        for run in para.runs:
-            if '<w:br w:type="page"/>' in run._r.xml:
-                has_page_break = True
-                break
-        if has_page_break:
-            page += 1
-            points_on_page = 0
-            continue
+    for _, etype, obj in elements:
+        if etype == "PARA":
+            para = obj
+            text = para.text.strip()
+            style_name = para.style.name if para.style else "Normal"
 
-        # 2. Section breaks (Next Page breaks added via doc.add_section)
-        # We only check for sectPr inside pPr (paragraph properties)
-        has_sect_break = bool(para._element.xpath('./w:pPr/w:sectPr'))
-        if has_sect_break:
-            page += 1
-            points_on_page = 0
-            continue
-
-        if not text:
-            # Empty paragraphs (spacing)
-            points_on_page += 12
-            continue
-
-        # 3. Height Measurement
-        pt = 0
-        if style_name == "Heading 1":
-            # 16pt font + 24pt spacing = 40pt text + padding ≈ 88pt total
-            pt = 88
-            page_map[text] = str(page)
-        elif style_name == "Heading 2":
-            # 14pt font + 30pt padding = 54pt
-            pt = 54
-            if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
-                page += 1; points_on_page = 0
-            page_map[text] = str(page)
-        elif style_name == "Heading 3":
-            pt = 44
-            if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
-                page += 1; points_on_page = 0
-            page_map[text] = str(page)
-        elif style_name == "Caption":
-            pt = 30
-            page_map[text] = str(page)
-        else:
-            # Title / Normal text
-            lines = max(1, (len(text) + 84) // 85)
-            # 12pt * 1.5 spacing ≈ 18pt/line + 4pt paragraph padding
-            pt = lines * 18 + 4
+            # 1. Physical Page Breaks
+            has_page_break = False
+            for run in para.runs:
+                if '<w:br w:type="page"/>' in run._r.xml:
+                    has_page_break = True
+                    break
             
-            # Specific Title Page logic
-            if "Course Project Report" in text: pt = 86
-            if style_name == "Normal" and para.alignment == 1: # Centered
-                pt = lines * 21 + 10 # Title page body
+            # 2. Section Breaks (Next Page)
+            has_sect_break = bool(para._element.xpath('./w:pPr/w:sectPr'))
+            
+            if has_page_break or has_sect_break:
+                page += 1
+                points_on_page = 0
+                continue
 
-        # Check for images
-        if para._element.xpath('.//*[local-name()="drawing"]'):
-            pt = max(pt, 300)
+            if not text:
+                points_on_page += 12
+                continue
+
+            # 3. Height Measurement
+            pt = 0
+            if style_name == "Heading 1":
+                # Academic Standard: 16pt + 24pt spacing + 24pt margin = 64pt
+                pt = 64
+                page_map[text] = str(page)
+            elif style_name == "Heading 2":
+                pt = 47
+                if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
+                    page += 1; points_on_page = 0
+                page_map[text] = str(page)
+            elif style_name == "Heading 3":
+                pt = 36
+                if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
+                    page += 1; points_on_page = 0
+                page_map[text] = str(page)
+            elif style_name == "Caption":
+                pt = 30
+                page_map[text] = str(page)
+            else:
+                # Normal/Title text - multi-line aware
+                p_lines = 0
+                for line in para.text.split('\n'):
+                    p_lines += max(1, (len(line.strip()) + 84) // 85)
+                
+                if "Course Project Report" in text:
+                    pt = 86 # Title page branding
+                elif para.alignment == 1: # Centered (Splash Page)
+                    pt = p_lines * 22 + 10
+                else:
+                    # 12pt * 1.5 spacing = 18pt/line + 2pt padding
+                    pt = p_lines * 18 + 2
+
+            # Image detection
+            if para._element.xpath('.//*[local-name()="drawing"]'):
+                pt = max(pt, 300)
+                if points_on_page + pt > PAGE_HEIGHT_PT:
+                    page += 1; points_on_page = 0
+
+            points_on_page += pt
+            while points_on_page > PAGE_HEIGHT_PT:
+                points_on_page -= PAGE_HEIGHT_PT
+                page += 1
+
+        elif etype == "TABLE":
+            # Tables (Signature blocks) take ~150pt
+            pt = 150
             if points_on_page + pt > PAGE_HEIGHT_PT:
                 page += 1; points_on_page = 0
-
-        points_on_page += pt
-        while points_on_page > PAGE_HEIGHT_PT:
-            points_on_page -= PAGE_HEIGHT_PT
-            page += 1
-
-    # Final pass: Account for Tables (Signature Blocks) which are not in doc.paragraphs
-    # Each signature block is usually ~150pt
-    for table in doc.tables:
-        page_map["[TABLE_REF]"] = str(page)
-        points_on_page += 150
-        if points_on_page > PAGE_HEIGHT_PT:
-            page += 1; points_on_page = 0
+            points_on_page += pt
 
     return page_map
 
