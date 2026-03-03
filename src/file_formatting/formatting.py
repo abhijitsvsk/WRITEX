@@ -661,30 +661,42 @@ def generate_report(
     # --- POST-PROCESSING ---
 
     # ZERO-TOLERANCE WHITESPACE PURGE
-    # Iterate and destroy totally empty trailing paragraphs to prevent consecutive blank pages
-    for p in doc.paragraphs:
+    # Snapshot the list to avoid modifying during iteration
+    paragraphs_snapshot = list(doc.paragraphs)
+    for p in paragraphs_snapshot:
         if not p.text.strip():
-            # If the paragraph has no text, AND it doesn't contain special XML elements like Page Breaks or Shading, delete it.
-            has_break = False
-            for run in p.runs:
-                if '<w:br w:type="page"/>' in run._r.xml:
-                    has_break = True
-                    break
+            # Preserve page breaks
+            has_break = bool(p._element.xpath('.//*[local-name()="br"]'))
+            if has_break:
+                continue
 
-            # Don't delete formatting nodes, structural breaks, embedded images, or SDT siblings
+            # Preserve embedded images
             has_drawing = bool(p._element.xpath('.//*[local-name()="drawing"]'))
-            has_sdt_sibling = bool(
-                p._element.getnext() is not None and p._element.getnext().tag.endswith('}sdt')
-            ) or bool(
-                p._element.getprevious() is not None and p._element.getprevious().tag.endswith('}sdt')
+            if has_drawing:
+                continue
+
+            # Preserve shaded blocks (code blocks, placeholders)
+            has_shading = bool(p._element.xpath('.//*[local-name()="shd"]'))
+            if has_shading:
+                continue
+
+            # Preserve section break paragraphs
+            has_sectPr = bool(p._element.xpath('.//*[local-name()="sectPr"]'))
+            if has_sectPr:
+                continue
+
+            # Preserve SDT-adjacent paragraphs
+            has_sdt_sibling = (
+                (p._element.getnext() is not None and p._element.getnext().tag.endswith('}sdt'))
+                or (p._element.getprevious() is not None and p._element.getprevious().tag.endswith('}sdt'))
             )
-            if (
-                not has_break
-                and not has_drawing
-                and not has_sdt_sibling
-                and not p.paragraph_format.element.xpath(".//w:shd")
-            ):
-                p._element.getparent().remove(p._element)
+            if has_sdt_sibling:
+                continue
+
+            # Safe to delete
+            parent = p._element.getparent()
+            if parent is not None:
+                parent.remove(p._element)
 
     _add_page_numbers(doc, font_name)
 
