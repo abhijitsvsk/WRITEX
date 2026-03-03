@@ -19,13 +19,11 @@ def _postbuild_estimate_pages(doc):
 
     # Interleave paragraphs and tables in original document order
     elements = []
-    # Identify positions in body
     for p in doc.paragraphs:
         elements.append((p._element.getparent().index(p._element), "PARA", p))
     for t in doc.tables:
         elements.append((t._element.getparent().index(t._element), "TABLE", t))
     
-    # Sort by original XML order
     elements.sort(key=lambda x: x[0])
 
     for _, etype, obj in elements:
@@ -56,16 +54,26 @@ def _postbuild_estimate_pages(doc):
             # 3. Height Measurement
             pt = 0
             if style_name == "Heading 1":
-                # Academic Standard: 16pt + 24pt spacing + 24pt margin = 64pt
-                pt = 64
+                # Conservative CPL for 16pt bold is ~50 chars.
+                h1_lines = 0
+                for line in para.text.split('\n'):
+                    h1_lines += max(1, (len(line.strip()) + 49) // 50)
+                pt = h1_lines * 16 + 24 + 18 # Text + Spacing After + Margin
                 page_map[text] = str(page)
             elif style_name == "Heading 2":
-                pt = 47
+                # Conservative CPL for 14pt bold is ~60 chars
+                h2_lines = 0
+                for line in para.text.split('\n'):
+                    h2_lines += max(1, (len(line.strip()) + 59) // 60)
+                pt = h2_lines * 14 + 18 + 12
                 if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
                     page += 1; points_on_page = 0
                 page_map[text] = str(page)
             elif style_name == "Heading 3":
-                pt = 36
+                h3_lines = 0
+                for line in para.text.split('\n'):
+                    h3_lines += max(1, (len(line.strip()) + 69) // 70)
+                pt = h3_lines * 12 + 14 + 8
                 if points_on_page + pt + 60 > PAGE_HEIGHT_PT:
                     page += 1; points_on_page = 0
                 page_map[text] = str(page)
@@ -73,18 +81,18 @@ def _postbuild_estimate_pages(doc):
                 pt = 30
                 page_map[text] = str(page)
             else:
-                # Normal/Title text - multi-line aware
+                # Normal text - conservative 75 CPL for 12pt TNR
                 p_lines = 0
                 for line in para.text.split('\n'):
-                    p_lines += max(1, (len(line.strip()) + 84) // 85)
+                    p_lines += max(1, (len(line.strip()) + 74) // 75)
                 
                 if "Course Project Report" in text:
-                    pt = 86 # Title page branding
+                    pt = 96 # Increased for branding
                 elif para.alignment == 1: # Centered (Splash Page)
-                    pt = p_lines * 22 + 10
+                    pt = p_lines * 22 + 24 # Increased padding for splash items
                 else:
-                    # 12pt * 1.5 spacing = 18pt/line + 2pt padding
-                    pt = p_lines * 18 + 2
+                    # 12pt * 1.5 spacing = 18pt/line + 10pt standard padding
+                    pt = p_lines * 18 + 10
 
             # Image detection
             if para._element.xpath('.//*[local-name()="drawing"]'):
@@ -98,7 +106,7 @@ def _postbuild_estimate_pages(doc):
                 page += 1
 
         elif etype == "TABLE":
-            # Tables (Signature blocks) take ~150pt
+            # Tables take physical vertical space
             pt = 150
             if points_on_page + pt > PAGE_HEIGHT_PT:
                 page += 1; points_on_page = 0
