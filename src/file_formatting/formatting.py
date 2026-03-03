@@ -367,19 +367,13 @@ def generate_report(
             counters["subsub"] = 0
             counters["figure"] = 0
 
-            # First Chapter gets a new section with Arabic numbering restart
+            # First Chapter gets a new section (for layout), continuous page numbering
             if counters["chapter"] == 1:
-                # Add section break instead of page break
+                # Add section break for layout separation
                 new_section = doc.add_section(WD_SECTION.NEW_PAGE)
                 
                 # Unlink footer from front matter
                 new_section.footer.is_linked_to_previous = False
-                
-                # Restart numbering at 1, Arabic format
-                pgNumType = OxmlElement('w:pgNumType')
-                pgNumType.set(ns.qn('w:fmt'), 'decimal')
-                pgNumType.set(ns.qn('w:start'), '1')
-                new_section._sectPr.append(pgNumType)
             else:
                 doc.add_page_break()
 
