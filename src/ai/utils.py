@@ -70,38 +70,56 @@ def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5
 
         except Exception as e:
             error_str = str(e)
-
-            # Check for Groq RateLimitError (usually 429)
+            
+            # Check if this error is retriable
             is_rate_limit = (
                 "429" in error_str
                 or "rate limit" in error_str.lower()
                 or "too many requests" in error_str.lower()
             )
+            
+            is_server_error = (
+                "503" in error_str
+                or "500" in error_str
+                or "502" in error_str
+                or "504" in error_str
+                or "over capacity" in error_str.lower()
+                or "internal server error" in error_str.lower()
+            )
 
-            if is_rate_limit:
-                telemetry_data["total_rate_limits"] += 1
+            if is_rate_limit or is_server_error:
+                if is_rate_limit:
+                    telemetry_data["total_rate_limits"] += 1
+                
                 if attempt == max_retries - 1:
                     logger.error(f"Max retries reached for prompt. Last error: {e}")
-                    raise RuntimeError(f"RateLimitError: Exhausted maximum retries ({max_retries}). {error_str}")
+                    raise RuntimeError(f"API Error: Exhausted maximum retries ({max_retries}). {error_str}")
 
-                # Try to parse wait time from error message
+                # Determine delay
                 wait_time = 0
-                # Groq often returns "Please try again in Xs" or similar
                 match = re.search(r"try again in (\d+(\.\d+)?)s", error_str)
                 if match:
                     wait_time = float(match.group(1))
                     delay = wait_time + 1.0
                     logger.warning(
-                        f"Rate limit hit. API requested wait of {wait_time:.2f}s. Sleeping for {delay:.2f}s."
+                        f"Retry triggered by API message. Wait of {wait_time:.2f}s. Sleeping for {delay:.2f}s."
                     )
                 else:
-                    # Short exponential backoff
-                    delay = (base_delay * (2**attempt)) + random.uniform(0.5, 1.5)  # nosec B311
-                    logger.warning(
-                        f"Rate limit hit (Attempt {attempt+1}/{max_retries}). Retrying in {delay:.2f} seconds..."
-                    )
+                    # Generic exponential backoff for 429 or 5xx
+                    delay = (base_delay * (2**attempt)) + random.uniform(0.5, 1.5)
+                    
+                    if is_server_error:
+                        # Be slightly more patient for server-side issues
+                        delay += 2.0
+                        logger.warning(
+                            f"Server error / Over capacity hit (Attempt {attempt+1}/{max_retries}). Retrying in {delay:.2f}s..."
+                        )
+                    else:
+                        logger.warning(
+                            f"Rate limit hit (Attempt {attempt+1}/{max_retries}). Retrying in {delay:.2f}s..."
+                        )
 
-                print(f"⏳ Rate limit hit — waiting {delay:.1f}s before retry...")
+                print(f"API Busy/Error ({'503' if is_server_error else '429'}) — waiting {delay:.1f}s...")
                 time.sleep(delay)
                 telemetry_data["total_retries"] += 1
             else:
