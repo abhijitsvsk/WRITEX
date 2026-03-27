@@ -5,8 +5,9 @@ import zlib
 import requests
 import time
 import concurrent.futures
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from src.ai.report_generator import ReportGenerator
+from src.models.constraints import ResolvedConstraints
 
 # Centralized Deterministic Schema — Mirrors the sample report structure exactly
 # Subsections can be strings (simple) or dicts with "title" and "subsubsections" keys
@@ -92,12 +93,18 @@ class DocumentCompiler:
         self.generator = ReportGenerator(api_key=api_key)
 
     def compile_structure(
-        self, context: Dict[str, Any], summary: Any, progress_callback=None
+        self, context: Dict[str, Any], summary: Any, progress_callback=None,
+        constraints: Optional[ResolvedConstraints] = None,
     ) -> List[Dict]:
         """
         Executes the content generation phase. Returns the pre-validation structure array.
+        If constraints is provided, a constraint directive is prepended to every LLM call.
         """
         full_structure = []
+
+        # Inject constraint directive into context so all downstream LLM calls see it
+        if constraints:
+            context["constraint_directive"] = self._build_constraint_directive(constraints)
 
         # 1. Title Page
         full_structure.append(
@@ -325,6 +332,30 @@ class DocumentCompiler:
         self._validate_AST(full_structure, expected_figures_count)
 
         return full_structure
+
+    def _build_constraint_directive(self, constraints: ResolvedConstraints) -> str:
+        """
+        Builds a human-readable constraint block that is prepended to every LLM system prompt.
+        Only includes constraints that have non-None values.
+        """
+        lines = ["DOCUMENT CONSTRAINTS (MUST BE RESPECTED):"]
+        if constraints.page_limit is not None:
+            lines.append(f"- Maximum page count: {constraints.page_limit} pages. Monitor word count across chapters and compress if approaching limit.")
+        if constraints.font_size is not None:
+            lines.append(f"- Font size: {constraints.font_size}pt throughout. Override any default formatting.")
+        if constraints.font_name is not None:
+            lines.append(f"- Font: {constraints.font_name}. Use this font for all body text.")
+        if constraints.line_spacing is not None:
+            lines.append(f"- Line spacing: {constraints.line_spacing}. Apply to all body paragraphs.")
+        if constraints.margin_inches is not None:
+            lines.append(f"- Margins: {constraints.margin_inches} inches on all sides.")
+        if constraints.min_words is not None:
+            lines.append(f"- Minimum word count: {constraints.min_words} words total.")
+        if constraints.max_words is not None:
+            lines.append(f"- Maximum word count: {constraints.max_words} words total.")
+        for directive in constraints.custom_directives:
+            lines.append(f"- {directive}")
+        return "\n".join(lines)
 
     def _validate_AST(self, full_structure: List[Dict], expected_figures_count: int):
         """

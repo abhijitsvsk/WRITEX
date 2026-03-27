@@ -9,6 +9,9 @@ from .code_analysis_formatter import format_detailed_analysis_for_prompt
 from src.security.sanitizer import DataSanitizer
 import textwrap
 
+# Module-level lock for cache concurrency across threads
+REPORT_CACHE_LOCK = threading.Lock()
+
 
 class ReportGenerator:
     def __init__(self, api_key: str, model_name: str = "llama-3.3-70b-versatile"):
@@ -22,7 +25,6 @@ class ReportGenerator:
         self.cache_dir = os.path.join("cache")
         os.makedirs(self.cache_dir, exist_ok=True)
         self.cache_file = os.path.join(self.cache_dir, "report_cache.json")
-        self._cache_lock = threading.Lock()
         self.cache = self._load_cache()
 
     def _load_cache(self) -> Dict[str, str]:
@@ -35,7 +37,7 @@ class ReportGenerator:
         return {}
 
     def _save_cache(self):
-        with self._cache_lock:
+        with REPORT_CACHE_LOCK:
             try:
                 with open(self.cache_file, "w", encoding="utf-8") as f:
                     json.dump(self.cache, f, indent=4)
@@ -44,7 +46,7 @@ class ReportGenerator:
 
     def clear_cache(self):
         """Thread-safe method to wipe the generation cache for a fresh run."""
-        with self._cache_lock:
+        with REPORT_CACHE_LOCK:
             self.cache = {}
             if os.path.exists(self.cache_file):
                 try:
@@ -105,7 +107,7 @@ class ReportGenerator:
             return self.fill_template(section_name, user_context)
 
         # Check Cache
-        cache_key = f"section_{section_name}_{user_context.get('title', 'default')}"
+        cache_key = f"section_{section_name}_{user_context.get('title', 'default')}_{user_context.get('session_id', '')}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 
@@ -149,7 +151,7 @@ class ReportGenerator:
         safe_summary = DataSanitizer.sanitize_payload(sliced_summary)
 
         # Cache Check
-        cache_key = f"sub_{chapter_title}_{subsection_title}_{user_context.get('title', 'default')}"
+        cache_key = f"sub_{chapter_title}_{subsection_title}_{user_context.get('title', 'default')}_{user_context.get('session_id', '')}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 
@@ -314,7 +316,7 @@ class ReportGenerator:
         Generates body paragraphs for Lit Survey.
         """
         # Check Cache
-        cache_key = f"lit_survey_{user_context.get('title', 'default')}"
+        cache_key = f"lit_survey_{user_context.get('title', 'default')}_{user_context.get('session_id', '')}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 

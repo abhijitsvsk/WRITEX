@@ -29,6 +29,10 @@ class CodeAnalyzer:
     def analyze_zip(self, zip_file) -> ProjectSummary:
         """
         Extracts and analyzes a ZIP file (from a file-like object or path) in-memory.
+        NOTE: File selection and AST extraction happen here.
+        DataSanitizer strings/payload scrubbing happens later in the pipeline
+        (in ReportGenerator) AFTER file selection and AST extraction are complete.
+        This means the trust boundary rests at the LLM prompt payload, not at ingestion.
         """
         summary = ProjectSummary()
 
@@ -59,31 +63,66 @@ class CodeAnalyzer:
 
         return summary
 
+    def _score_file(self, file_path: Path) -> int:
+        score = 0
+        name = file_path.name.lower()
+        if name in ["app.py", "main.py", "index.js", "server.js", "manage.py", "setup.py"]:
+            score += 200
+        if "test" in name or "spec" in name:
+            score += 50
+            
+        ext = file_path.suffix.lower()
+        if ext in [".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".cpp", ".go"]:
+            score += 30
+            
+        # Penalize deep nesting
+        score -= len(file_path.parts) * 5
+        return score
+
     def _analyze_in_memory(self, zip_ref: zipfile.ZipFile, summary: ProjectSummary):
-        file_count = 0
         analysis_results = []
+        total_uncompressed_size = 0
+        valid_files = []
 
         for file_info in zip_ref.infolist():
-            if file_count >= self.max_files:
-                break
-
             if file_info.is_dir():
                 continue
+                
+            # Defend against ZIP bombs by validating uncompressed size
+            if file_info.file_size > 500 * 1024:
+                raise ValueError(f"File {file_info.filename} exceeds 500KB uncompressed limit. Aborting to prevent OOM crash.")
+            total_uncompressed_size += file_info.file_size
+            if total_uncompressed_size > 20 * 1024 * 1024:
+                raise ValueError("Total uncompressed size exceeds 20MB limit. Aborting to prevent OOM crash.")
 
             file_path = Path(file_info.filename)
 
             # Skip ignored directories
             if any(part in self.ignored_dirs for part in file_path.parts):
                 continue
+                
+            # HARD EXCLUDE: Protect against small projects skipping score penalties
+            name = file_path.name.lower()
+            lower_parts = [p.lower() for p in file_path.parts]
+            if name in ["settings.py", "config.py", ".env", "production.py", "development.py"] or name.endswith(("lock", ".json", ".xml", ".csv")):
+                continue
+            if "settings" in lower_parts or "config" in lower_parts or "secrets" in lower_parts:
+                continue
 
-            file_count += 1
+            score = self._score_file(file_path)
+            valid_files.append((file_info, file_path, score))
+
+        # Sort by score descending for intelligent monorepo truncation
+        valid_files.sort(key=lambda x: x[2], reverse=True)
+        setattr(summary, "is_truncated", len(valid_files) > self.max_files)
+        summary.total_files = len(valid_files)
+
+        for file_info, file_path, score in valid_files[:self.max_files]:
             analysis_result = self._analyze_file_memory(
                 file_info, zip_ref, file_path, summary
             )
             if analysis_result:
                 analysis_results.append(analysis_result)
-
-        summary.total_files = file_count
 
         if analysis_results:
             summary.detailed_analysis = merge_analysis_results(analysis_results)
@@ -118,11 +157,18 @@ class CodeAnalyzer:
                 summary.tech_stack.append(lang)
 
         analysis_result = None
+        
+        try:
+            content = zip_ref.read(file_info).decode("utf-8", errors="ignore")
+        except Exception:
+            return None
+
+        # Block recursion errors from minified or auto-generated code
+        if any(len(line) > 500 for line in content.split('\n')):
+            return None
+
         if extension == ".py":
             try:
-                # Read completely in-memory
-                content = zip_ref.read(file_info).decode("utf-8", errors="ignore")
-
                 analysis_result = self.code_parser.parse_file(file_path, content)
                 self._analyze_python_ast(content, file_path.name, summary)
 
@@ -141,8 +187,43 @@ class CodeAnalyzer:
 
             except Exception:
                 pass  # nosec B110
+        elif extension in [".js", ".jsx", ".ts", ".tsx", ".java"]:
+            analysis_result = self._analyze_generic_ast(content, file_path, extension)
 
         return analysis_result
+
+    def _analyze_generic_ast(self, content: str, file_path: Path, ext: str):
+        from .code_parser import CodeAnalysisResult, FunctionInfo, ClassInfo
+        import re
+        
+        result = CodeAnalysisResult()
+        result.files_analyzed.append(str(file_path))
+        
+        try:
+            if ext in [".js", ".jsx", ".ts", ".tsx"]:
+                classes = re.finditer(r"class\s+([A-Z]\w*)", content)
+                for match in classes:
+                    result.classes.append(ClassInfo(name=match.group(1), docstring="", line_start=content[:match.start()].count('\n'), line_end=content[:match.end()].count('\n')))
+                
+                funcs_raw = re.finditer(r"(?:function\s+(\w+)\s*\(|const\s+(\w+)\s*=\s*\(|const\s+(\w+)\s*=\s*function)", content)
+                for match in funcs_raw:
+                    name = next(g for g in match.groups() if g is not None)
+                    result.functions.append(FunctionInfo(name=name, signature=f"{name}()", docstring="", line_start=content[:match.start()].count('\n'), line_end=content[:match.end()].count('\n')))
+                    
+            elif ext == ".java":
+                classes = re.finditer(r"(?:public|private|protected)?\s*class\s+([A-Z]\w*)", content)
+                for match in classes:
+                    result.classes.append(ClassInfo(name=match.group(1), docstring="", line_start=content[:match.start()].count('\n'), line_end=content[:match.end()].count('\n')))
+                    
+                funcs_raw = re.finditer(r"(?:public|private|protected|static)\s+[\w<>]+\s+(\w+)\s*\(", content)
+                for match in funcs_raw:
+                    name = match.group(1)
+                    if name not in ["if", "for", "while", "catch", "switch"]:
+                        result.functions.append(FunctionInfo(name=name, signature=f"{name}()", docstring="", line_start=content[:match.start()].count('\n'), line_end=content[:match.end()].count('\n')))
+        except Exception:
+            pass
+            
+        return result
 
     def _get_summary_doc(self, node):
         try:
