@@ -1,5 +1,11 @@
 # Writex: Academic Report Engine
 
+## 🎥 Demo
+
+![Writex Demo](./demo.gif)
+
+Transform raw code into structured technical reports in seconds.
+
 Writex is a smart tool that helps engineering students automatically generate perfectly formatted B.Tech project reports. Just upload your project code (ZIP file), and Writex uses AI to read the code and write a complete 6-chapter university report for you in a ready-to-print Microsoft Word (`.docx`) file. 
 
 Additionally, Writex can instantly reformat any messy text or old document into standard professional styles like IEEE or APA.
