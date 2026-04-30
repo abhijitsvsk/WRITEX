@@ -16,26 +16,18 @@ By analyzing your project code securely in-memory, Writex extracts the system ar
 *   **AI Resilience:** Built-in exponential backoff and jitter to handle API rate limits and 503 errors, ensuring reliable document generation.
 *   **Lightning Fast:** Leveraging parallel processing and advanced caching to generate 30+ page reports in minutes.
 
-## 🏗️ Architecture
+## 🧠 Architecture Overview
 
-```mermaid
-graph TD
-    A[ZIP Upload] --> B(AST Parsing & Chunking)
-    B --> C{Groq / Llama-3 70B}
-    C --> D[Summary Consolidation]
-    D --> E[Chapter Generation]
-    E --> F[docx Compilation]
-    F --> G[Formatted .docx Output]
-```
+Writex implements a multi-stage AI documentation pipeline that bridges deterministic static analysis with advanced LLM synthesis. By passing code through an AST Map-Reduce layer prior to generation, this architecture directly solves common LLM limitations—such as context dilution and hallucination—ensuring that all technical narratives are strictly grounded in your actual codebase.
 
-## 🔬 Experimental (Upcoming v2 Architecture)
+![Writex Architecture Diagram](IMAGE%20FO%20RREADME.png)
 
-We are actively developing a **Deterministic Map-Reduce Pipeline** to natively solve the "context dilution" problem common in LLM document generation.
+### Key Design Principles
 
-By setting `USE_EXPERIMENTAL_FEATURES = True` in `src/app.py`, you can preview our new ingestion layer:
-1. **AST Extraction (Map):** Python `ast` parsing deterministically extracts class definitions, function footprints, and graph imports without hallucination.
-2. **Semantic Graphing:** Dynamically auto-builds Mermaid.js dependency trees from the AST imports.
-3. **Synthesis (Reduce):** (Upcoming) Parallelized Llama/Claude models synthesize these extracted footprints into cohesive technical narratives, drastically improving large-codebase accuracy.
+*   **Deterministic Parsing (AST):** Eliminates hallucination by extracting exact class structures, function footprints, and import graphs before any LLM involvement.
+*   **Separation of Concerns:** System decoupled into distinct, purpose-built layers: User Interface, Analysis & Extraction, AI Orchestration, and Validation & Rendering.
+*   **Validation & Auto-Healing:** Multi-pass validation gates ensure document structural integrity, automatically correcting heading hierarchies and formatting drift before output.
+*   **Structured End-to-End Flow:** A seamless pipeline that securely translates raw code payloads into perfectly formatted, ready-to-print academic reports in-memory.
 
 ## 🛠️ Built With
 
