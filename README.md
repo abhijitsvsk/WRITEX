@@ -12,6 +12,19 @@ Additionally, Writex can instantly reformat any messy text or old document into 
 * **Lightning Fast:** Generates a full 30+ page technical report in under 45 seconds using advanced parallel processing.
 * **Document Refresher:** Paste messy text or upload an old PDF, and Writex will redesign the headings and layout into strict IEEE or APA academic standards.
 
+## 🧠 Architecture Overview
+
+Writex implements a multi-stage AI documentation pipeline that bridges deterministic static analysis with advanced LLM synthesis. By passing code through an AST Map-Reduce layer prior to generation, this architecture directly solves common LLM limitations—such as context dilution and hallucination—ensuring that all technical narratives are strictly grounded in your actual codebase.
+
+![Writex Architecture Diagram](IMAGE%20FO%20RREADME.png)
+
+### Key Design Principles
+
+*   **Deterministic Parsing (AST):** Eliminates hallucination by extracting exact class structures, function footprints, and import graphs before any LLM involvement.
+*   **Separation of Concerns:** System decoupled into distinct, purpose-built layers: User Interface, Analysis & Extraction, AI Orchestration, and Validation & Rendering.
+*   **Validation & Auto-Healing:** Multi-pass validation gates ensure document structural integrity, automatically correcting heading hierarchies and formatting drift before output.
+*   **Structured End-to-End Flow:** A seamless pipeline that securely translates raw code payloads into perfectly formatted, ready-to-print academic reports in-memory.
+
 ## 🛠️ Built With
 
 * **Frontend:** Streamlit 
