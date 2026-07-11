@@ -580,16 +580,8 @@ def generate_report(
         elif itype == "page_break":
             doc.add_page_break()
 
-        # 8. CODE SNIPPET (NATIVE)
+        # 8. CODE BLOCKS (Styled with Monokai Dark by default)
         elif itype == "code_block":
-            # Add "Code:" label first
-            label_p = doc.add_paragraph()
-            label_run = label_p.add_run("Code:")
-            label_run.bold = True
-            label_run.font.name = style_config.content_font
-            label_run.font.size = Pt(style_config.content_size_pt)
-            label_p.paragraph_format.space_before = Pt(12)
-            label_p.paragraph_format.space_after = Pt(4)
 
             # Insert code in a 1x1 table for a clean padded box
             table = doc.add_table(rows=1, cols=1)
@@ -670,13 +662,6 @@ def generate_report(
 
         # 9. TERMINAL OUTPUT (Tabular data, console logs)
         elif itype == "terminal_output":
-            label_p = doc.add_paragraph()
-            label_run = label_p.add_run("Output:")
-            label_run.bold = True
-            label_run.font.name = style_config.content_font
-            label_run.font.size = Pt(style_config.content_size_pt)
-            label_p.paragraph_format.space_before = Pt(12)
-            label_p.paragraph_format.space_after = Pt(4)
 
             # Insert code in a 1x1 table for a clean padded box (Terminal feel)
             table = doc.add_table(rows=1, cols=1)
