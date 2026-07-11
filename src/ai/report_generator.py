@@ -2,11 +2,15 @@ import os
 import json
 import re
 from typing import Dict, Any, List
-from groq import Groq
 import threading
 from .utils import generate_with_retry
 from .code_analysis_formatter import format_detailed_analysis_for_prompt
 from src.security.sanitizer import DataSanitizer
+from src.ai.provider_client import (
+    GROQ_DEFAULT_MODEL,
+    create_ai_client,
+    normalise_provider,
+)
 import textwrap
 
 # Module-level lock for cache concurrency across threads
@@ -14,18 +18,31 @@ REPORT_CACHE_LOCK = threading.Lock()
 
 
 class ReportGenerator:
-    def __init__(self, api_key: str, model_name: str = "llama-3.3-70b-versatile"):
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = GROQ_DEFAULT_MODEL,
+        provider: str = "groq",
+    ):
         if not api_key:
             raise ValueError("API Key is required for ReportGenerator")
-        # Initialize Groq client
-        self.model = Groq(api_key=api_key)
+        self.provider = normalise_provider(provider)
         self.model_name = model_name
+        self.model = create_ai_client(
+            api_key=api_key,
+            provider=self.provider,
+            model_name=model_name,
+        )
 
         # Free-Tier Caching System
         self.cache_dir = os.path.join("cache")
         os.makedirs(self.cache_dir, exist_ok=True)
         self.cache_file = os.path.join(self.cache_dir, "report_cache.json")
         self.cache = self._load_cache()
+
+    def _cache_key(self, *parts) -> str:
+        safe_parts = [str(part).replace(" ", "_") for part in parts]
+        return "_".join([self.provider, self.model_name, *safe_parts])
 
     def _load_cache(self) -> Dict[str, str]:
         if os.path.exists(self.cache_file):
@@ -107,7 +124,12 @@ class ReportGenerator:
             return self.fill_template(section_name, user_context)
 
         # Check Cache
-        cache_key = f"section_{section_name}_{user_context.get('title', 'default')}_{user_context.get('session_id', '')}"
+        cache_key = self._cache_key(
+            "section",
+            section_name,
+            user_context.get("title", "default"),
+            user_context.get("session_id", ""),
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
@@ -151,7 +173,13 @@ class ReportGenerator:
         safe_summary = DataSanitizer.sanitize_payload(sliced_summary)
 
         # Cache Check
-        cache_key = f"sub_{chapter_title}_{subsection_title}_{user_context.get('title', 'default')}_{user_context.get('session_id', '')}"
+        cache_key = self._cache_key(
+            "sub",
+            chapter_title,
+            subsection_title,
+            user_context.get("title", "default"),
+            user_context.get("session_id", ""),
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
@@ -316,7 +344,11 @@ class ReportGenerator:
         Generates body paragraphs for Lit Survey.
         """
         # Check Cache
-        cache_key = f"lit_survey_{user_context.get('title', 'default')}_{user_context.get('session_id', '')}"
+        cache_key = self._cache_key(
+            "lit_survey",
+            user_context.get("title", "default"),
+            user_context.get("session_id", ""),
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 

@@ -2,7 +2,7 @@ import re
 import time
 import random
 import logging
-import groq
+from src.ai.provider_client import GROQ_DEFAULT_MODEL
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +17,7 @@ telemetry_data = {
 }
 
 # Production AI Settings
-TARGET_MODEL_VERSION = "llama-3.1-8b-instant"
+TARGET_MODEL_VERSION = GROQ_DEFAULT_MODEL
 
 
 def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5, response_format=None):
@@ -45,8 +45,9 @@ def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5
         try:
             # Check if model object has 'chat' attribute (Groq client)
             if hasattr(model, "chat"):
+                target_model = getattr(model, "default_model", TARGET_MODEL_VERSION)
                 kwargs = {
-                    "model": TARGET_MODEL_VERSION,
+                    "model": target_model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.0,
                     "max_tokens": 2048,

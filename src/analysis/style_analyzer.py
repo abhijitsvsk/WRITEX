@@ -3,9 +3,9 @@ import io
 from typing import Dict, Any, Counter
 
 try:
-    import PyPDF2
+    import pypdf
 except ImportError:
-    PyPDF2 = None
+    pypdf = None
 
 try:
     from docx import Document
@@ -74,10 +74,10 @@ class StyleAnalyzer:
         try:
             filename = str(file_path).lower()
             if filename.endswith(".pdf"):
-                if not PyPDF2:
-                    return "Error: PyPDF2 not installed."
+                if not pypdf:
+                    return "Error: pypdf not installed."
                 # Handle file_obj differently based on type (bytes vs path)
-                reader = PyPDF2.PdfReader(file_obj)
+                reader = pypdf.PdfReader(file_obj)
 
                 count = 0
                 for page in reader.pages[:15]:  # Analyze first 15 pages for context
@@ -268,7 +268,7 @@ class StyleAnalyzer:
 
         return structure_config
 
-    def analyze_visual_style(self, file_path: str) -> Dict[str, Any]:
+    def analyze_visual_style(self, file_path: Any) -> Dict[str, Any]:
         """
         Analyzes the visual formatting (font, size, spacing) of a DOCX file.
         Returns the most frequent style attributes.
@@ -279,7 +279,13 @@ class StyleAnalyzer:
             "line_spacing": 1.5,
         }
 
-        if not file_path.endswith(".docx"):
+        filename = ""
+        if isinstance(file_path, str):
+            filename = file_path
+        elif hasattr(file_path, "name"):
+            filename = file_path.name
+
+        if not filename.lower().endswith(".docx"):
             return style_profile
 
         if not await_module_availability("docx"):

@@ -160,104 +160,88 @@ def _patch_toc_lof_pages(doc, page_map):
 
 
 def add_table_of_contents(doc, heading_paragraph, structure=None):
-    """
-    Builds a static Table of Contents with dot leaders and "?" placeholder page
-    numbers. The real page numbers are patched post-build by _patch_toc_lof_pages.
-    """
-    if not structure:
-        return
 
-    # Extract TOC entries directly from the structure
-    chapter = 0
-    sub = 0
-    subsub = 0
-    entries = []  # (title, level)
-
-    for item in structure:
-        itype = item.get("type", "")
-        text = item.get("text", "")
-
-        if itype == "chapter":
-            chapter += 1
-            sub = 0
-            subsub = 0
-            entries.append((f"Chapter {chapter} {text.title()}", 1))
-
-        elif itype == "subheading":
-            sub += 1
-            subsub = 0
-            entries.append((f"{chapter}.{sub} {text.title()}", 2))
-
-        elif itype == "subsubheading":
-            subsub += 1
-            entries.append((f"{chapter}.{sub}.{subsub} {text.title()}", 3))
-
-        elif itype == "section_header":
-            h = text.strip()
-            if h.upper() not in ("LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"):
-                entries.append((h.title(), 0))
-
-        elif itype == "institutional_header":
-            entries.append((text.strip().title(), 0))
-
-    for title, level in entries:
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-
-        indent_map = {0: 0, 1: 0, 2: Inches(0.4), 3: Inches(0.8)}
-        p.paragraph_format.left_indent = indent_map.get(level, 0)
-        p.paragraph_format.space_before = Pt(2)
-        p.paragraph_format.space_after = Pt(2)
-        p.paragraph_format.line_spacing = 1.15
-
-        tab_stops = p.paragraph_format.tab_stops
-        tab_stops.add_tab_stop(Inches(5.5), WD_ALIGN_PARAGRAPH.RIGHT, 2)
-
-        entry_text = f"{title}\t?"          # <-- placeholder; patched post-build
-        run = p.add_run(entry_text)
-        run.font.name = "Times New Roman"
-        run.font.size = Pt(12)
-        if level <= 1:
-            run.bold = True
-
+    
+    p = doc.add_paragraph()
+    r = p.add_run()
+    
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+    
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    
+    r._r.append(fldChar1)
+    r._r.append(instrText)
+    r._r.append(fldChar2)
+    r._r.append(fldChar3)
+    
+    # Wrap the paragraph in an SDT block
+    sdt = OxmlElement('w:sdt')
+    sdtPr = OxmlElement('w:sdtPr')
+    docPartObj = OxmlElement('w:docPartObj')
+    docPartGallery = OxmlElement('w:docPartGallery')
+    docPartGallery.set(qn('w:val'), 'Table of Contents')
+    docPartUnique = OxmlElement('w:docPartUnique')
+    docPartObj.append(docPartGallery)
+    docPartObj.append(docPartUnique)
+    sdtPr.append(docPartObj)
+    sdt.append(sdtPr)
+    
+    sdtContent = OxmlElement('w:sdtContent')
+    sdtContent.append(p._p)
+    
+    sdt.append(sdtContent)
+    doc.element.body.append(sdt)
 
 def add_list_of_figures(doc, heading_paragraph, structure=None):
-    """
-    Builds a static List of Figures with dot leaders and "?" placeholder page
-    numbers. The real page numbers are patched post-build by _patch_toc_lof_pages.
-    """
-    if not structure:
-        return
 
-    # Extract figure entries directly from the structure
-    chapter = 0
-    fig = 0
-    entries = []  # (caption_text,)
-
-    for item in structure:
-        itype = item.get("type", "")
-        if itype == "chapter":
-            chapter += 1
-            fig = 0
-        elif itype == "figure":
-            fig += 1
-            caption = item.get("caption", "") or item.get("text", "")
-            entries.append(f"{chapter}.{fig} {caption}")
-
-    for caption in entries:
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        p.paragraph_format.space_before = Pt(2)
-        p.paragraph_format.space_after = Pt(2)
-        p.paragraph_format.line_spacing = 1.15
-
-        tab_stops = p.paragraph_format.tab_stops
-        tab_stops.add_tab_stop(Inches(5.5), WD_ALIGN_PARAGRAPH.RIGHT, 2)
-
-        entry_text = f"Figure {caption}\t?"  # <-- placeholder; patched post-build
-        run = p.add_run(entry_text)
-        run.font.name = "Times New Roman"
-        run.font.size = Pt(12)
+    
+    p = doc.add_paragraph()
+    r = p.add_run()
+    
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = 'TOC \\h \\z \\c "Figure"'
+    
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    
+    r._r.append(fldChar1)
+    r._r.append(instrText)
+    r._r.append(fldChar2)
+    r._r.append(fldChar3)
+    
+    # Wrap the paragraph in an SDT block
+    sdt = OxmlElement('w:sdt')
+    sdtPr = OxmlElement('w:sdtPr')
+    docPartObj = OxmlElement('w:docPartObj')
+    docPartGallery = OxmlElement('w:docPartGallery')
+    docPartGallery.set(qn('w:val'), 'Table of Figures')
+    docPartUnique = OxmlElement('w:docPartUnique')
+    docPartObj.append(docPartGallery)
+    docPartObj.append(docPartUnique)
+    sdtPr.append(docPartObj)
+    sdt.append(sdtPr)
+    
+    sdtContent = OxmlElement('w:sdtContent')
+    sdtContent.append(p._p)
+    
+    sdt.append(sdtContent)
+    doc.element.body.append(sdt)
 
 
 def generate_report(
@@ -267,23 +251,39 @@ def generate_report(
     custom_font=None,
     custom_size=None,
     custom_spacing=None,
+    custom_margin=None,
 ):
     doc = Document()
+    template_config = {
+        "Standard": {"font": "Times New Roman", "size": 12, "spacing": 1.5, "margin": 1.0, "left_margin": 1.5},
+        "APA": {"font": "Times New Roman", "size": 12, "spacing": 2.0, "margin": 1.0, "left_margin": 1.0},
+        "IEEE": {"font": "Times New Roman", "size": 10, "spacing": 1.0, "margin": 1.0, "left_margin": 1.0},
+        "Thesis": {"font": "Times New Roman", "size": 12, "spacing": 1.5, "margin": 1.0, "left_margin": 1.5},
+        "Minimal": {"font": "Arial", "size": 11, "spacing": 1.15, "margin": 1.0, "left_margin": 1.0},
+    }
+    
+    t_cfg = template_config.get(style_name, template_config["Standard"])
 
     # --- Standard Style Config ---
-    font_name = "Times New Roman"
-    font_size = 12
-    line_spacing = 1.5
+    font_name = custom_font or t_cfg["font"]
+    font_size = custom_size or t_cfg["size"]
+    line_spacing = custom_spacing or t_cfg["spacing"]
 
     # --- Margin Setup (Enforcing Strict A4 Geometry) ---
     from docx.shared import Mm
     section = doc.sections[0]
     section.page_width = Mm(210)
     section.page_height = Mm(297)
-    section.top_margin = Inches(1)
-    section.bottom_margin = Inches(1)
-    section.left_margin = Inches(1.5)  # Academic standard
-    section.right_margin = Inches(1)
+    if custom_margin:
+        section.top_margin = Inches(custom_margin)
+        section.bottom_margin = Inches(custom_margin)
+        section.left_margin = Inches(custom_margin)
+        section.right_margin = Inches(custom_margin)
+    else:
+        section.top_margin = Inches(t_cfg["margin"])
+        section.bottom_margin = Inches(t_cfg["margin"])
+        section.left_margin = Inches(t_cfg["left_margin"])
+        section.right_margin = Inches(t_cfg["margin"])
 
     # --- Style Bootstrapping (Root Cause 2 Fix) ---
     # Ensure critical styles exist so the TOC/LOF fields don't silently fail.
@@ -619,36 +619,90 @@ def generate_report(
                     shading_elm
                 )
 
-            # --- CAPTION (Fully Deterministic — No Word Field Dependencies) ---
+            # --- CAPTION (Native Word SEQ Field) ---
             p = doc.add_paragraph()
             p.style = doc.styles["Caption"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.paragraph_format.space_after = Pt(12)
-            p.paragraph_format.line_spacing = 1.0  # Single spaced for figures
+            p.paragraph_format.line_spacing = 1.0
 
-            # Hardcoded caption: "Figure X.Y Caption" — no SEQ fields needed
-            caption_text = f"Figure {counters['chapter']}.{counters['figure']} {caption_clean}"
-            run = p.add_run(caption_text)
+            run = p.add_run("Figure ")
             run.font.name = font_name
             run.font.size = Pt(11)
+
+
+            fldChar1 = OxmlElement('w:fldChar')
+            fldChar1.set(qn('w:fldCharType'), 'begin')
+            instrText = OxmlElement('w:instrText')
+            instrText.set(qn('xml:space'), 'preserve')
+            instrText.text = ' SEQ Figure \\* ARABIC '
+            fldChar2 = OxmlElement('w:fldChar')
+            fldChar2.set(qn('w:fldCharType'), 'separate')
+            fldChar3 = OxmlElement('w:fldChar')
+            fldChar3.set(qn('w:fldCharType'), 'end')
+
+            r_xml = p.add_run()
+            r_xml._r.append(fldChar1)
+            r_xml._r.append(instrText)
+            r_xml._r.append(fldChar2)
+            r_xml._r.append(fldChar3)
+
+            run_text = p.add_run(f" {caption_clean}")
+            run_text.font.name = font_name
+            run_text.font.size = Pt(11)
 
         # 10. PARAGRAPH / BODY / PLACEHOLDERS
         else:
             text = text.strip()
             if not text:
-                continue  # Skip completely empty paragraphs
+                continue
 
             import re
 
-            # Code Extraction Tag — skip rendering these, they should have been
-            # processed by the compiler. If any leak through, silently drop them.
             code_match = re.search(r"\[Extract Code:\s*(.*?)\]", text, re.IGNORECASE)
             if code_match:
-                continue  # Do NOT render extraction tags as visible text
+                continue
 
-            # The architecture now structurally guarantees that all figures are emitted natively as `{"type": "figure"}`.
-            # Hallucinated `[Figure]` text inside generic paragraphs is stripped by the Compiler's parser layer.
-            # Therefore, we simply print text natively without string-based masking.
+            if text.lower().startswith("[figure") or text.lower().startswith("[fig"):
+                itype = "figure"
+                caption_clean = text.strip("[]")
+                if ":" in caption_clean:
+                    caption_clean = caption_clean.split(":", 1)[1].strip()
+                # Pass it down to the figure block below! We'll just execute the figure logic inline here.
+                counters["figure"] += 1
+                p = doc.add_paragraph()
+                p.style = doc.styles["Caption"]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.space_after = Pt(12)
+                p.paragraph_format.line_spacing = 1.0
+
+                run = p.add_run("Figure ")
+                run.font.name = font_name
+                run.font.size = Pt(11)
+                
+                # Native XML SEQ Field
+
+                fldChar1 = OxmlElement('w:fldChar')
+                fldChar1.set(qn('w:fldCharType'), 'begin')
+                instrText = OxmlElement('w:instrText')
+                instrText.set(qn('xml:space'), 'preserve')
+                instrText.text = ' SEQ Figure \\* ARABIC '
+                fldChar2 = OxmlElement('w:fldChar')
+                fldChar2.set(qn('w:fldCharType'), 'separate')
+                fldChar3 = OxmlElement('w:fldChar')
+                fldChar3.set(qn('w:fldCharType'), 'end')
+                
+                r_xml = p.add_run()
+                r_xml._r.append(fldChar1)
+                r_xml._r.append(instrText)
+                r_xml._r.append(fldChar2)
+                r_xml._r.append(fldChar3)
+                
+                run_text = p.add_run(f" {caption_clean}")
+                run_text.font.name = font_name
+                run_text.font.size = Pt(11)
+                continue
+
             p = doc.add_paragraph(text)
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
             p.paragraph_format.space_before = Pt(6)

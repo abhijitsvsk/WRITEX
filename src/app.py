@@ -65,11 +65,23 @@ st.title("📝 Writex: Academic Report Engine")
 print("--- App Reloaded with Team Input ---")
 
 with st.sidebar:
+    ai_provider = st.selectbox("AI Provider", ["Groq", "DeepSeek"])
+    provider_key = ai_provider.lower()
+    provider_env_key = "DEEPSEEK_API_KEY" if provider_key == "deepseek" else "GROQ_API_KEY"
+    model_options = (
+        ["deepseek-chat", "deepseek-reasoner"]
+        if provider_key == "deepseek"
+        else ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]
+    )
+    from src.ai.provider_client import DEEPSEEK_DEFAULT_MODEL, GROQ_DEFAULT_MODEL
+    default_model = DEEPSEEK_DEFAULT_MODEL if provider_key == "deepseek" else GROQ_DEFAULT_MODEL
+    model_index = model_options.index(default_model) if default_model in model_options else 0
+    selected_model = st.selectbox("AI Model", model_options, index=model_index)
     api_key = st.text_input(
-        "Groq API Key", type="password", value=os.environ.get("GROQ_API_KEY", "")
+        f"{ai_provider} API Key", type="password", value=os.environ.get(provider_env_key, "")
     )
     st.header("Formatting")
-    style_opts = ["Standard", "IEEE", "APA"]
+    style_opts = ["Standard", "IEEE", "APA", "Thesis", "Minimal"]
     sel_style = st.selectbox("Style", style_opts)
     
     st.markdown("---")
@@ -96,6 +108,7 @@ with tab3:
     col1, col2 = st.columns(2)
     with col1:
         proj_zip = st.file_uploader("Project ZIP", type=["zip"], key="project_zip")
+        github_url = st.text_input("Or GitHub Repository URL", placeholder="https://github.com/user/repo")
         sample_rep = st.file_uploader(
             "Upload Sample Report (PDF/DOCX)",
             type=["pdf", "docx"],
@@ -328,18 +341,30 @@ with tab3:
         disabled=_sr_started_not_confirmed,
     ) or st.session_state.generation_state == 'GENERATING':
         if not api_key:
-            st.error("🔒 Please enter your Groq API Key in the sidebar to proceed.")
-        elif not proj_zip:
-            st.error("📂 Please upload your Project ZIP file to generate the report.")
+            st.error(f"🔒 Please enter your {ai_provider} API Key in the sidebar to proceed.")
+        elif not proj_zip and not github_url:
+            st.error("📂 Please upload your Project ZIP file or provide a GitHub URL to generate the report.")
         elif not name.strip():
             st.error("👥 Please enter at least one Team Member name.")
         else:
             try:
                 import zipfile
+                from src.utils.github_import import download_github_repo
                 analyzer = CodeAnalyzer()
+                
+                # Load zip from github or upload
+                active_zip = proj_zip
+                if github_url and not proj_zip:
+                    with st.spinner("Downloading GitHub Repository..."):
+                        try:
+                            active_zip = download_github_repo(github_url)
+                        except Exception as e:
+                            st.error(str(e))
+                            st.stop()
+                            
                 with st.spinner("Analyzing Codebase (In-Memory)..."):
                     try:
-                        summary = analyzer.analyze_zip(proj_zip)
+                        summary = analyzer.analyze_zip(active_zip)
                     except zipfile.BadZipFile:
                         st.error("❌ Invalid or corrupted ZIP file. Please ensure you uploaded a valid ZIP archive.")
                         st.stop()
@@ -602,7 +627,7 @@ with tab3:
                     with st.spinner(
                         "Compiling Document Structure... (this takes 2-5 min due to API rate limits)"
                     ):
-                        compiler = DocumentCompiler(api_key=api_key)
+                        compiler = DocumentCompiler(api_key=api_key, provider=ai_provider, model_name=selected_model)
 
                         # Callback to update UI progress bar natively
                         progress_bar = st.progress(0)

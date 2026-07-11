@@ -7,6 +7,7 @@ import time
 import concurrent.futures
 from typing import Dict, Any, List, Optional
 from src.ai.report_generator import ReportGenerator
+from src.ai.provider_client import DEEPSEEK_DEFAULT_MODEL, GROQ_DEFAULT_MODEL, normalise_provider
 from src.models.constraints import ResolvedConstraints
 
 # Centralized Deterministic Schema — Mirrors the sample report structure exactly
@@ -89,8 +90,19 @@ class DocumentCompiler:
     Handles the mathematical generation loop, LLM fetching, and native code extraction.
     """
 
-    def __init__(self, api_key: str):
-        self.generator = ReportGenerator(api_key=api_key)
+    def __init__(
+        self,
+        api_key: str,
+        provider: str = "groq",
+        model_name: str | None = None,
+    ):
+        provider = normalise_provider(provider)
+        default_model = DEEPSEEK_DEFAULT_MODEL if provider == "deepseek" else GROQ_DEFAULT_MODEL
+        self.generator = ReportGenerator(
+            api_key=api_key,
+            provider=provider,
+            model_name=model_name or default_model,
+        )
 
     def compile_structure(
         self, context: Dict[str, Any], summary: Any, progress_callback=None,
@@ -548,3 +560,42 @@ class DocumentCompiler:
             citations.append(f"[{i+1}] Official Documentation and API Reference for {tech_clean}. {tech_clean} Development Team, {current_year}.")
             
         return "\n\n".join(citations)
+
+    def save_checkpoint(self, structure: List[Dict], filename: str = "writex_checkpoint.json"):
+        """Persists the generated structure to disk."""
+        import json
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(structure, f, indent=2)
+        except Exception as e:
+            print(f"Failed to save checkpoint: {e}")
+
+    @staticmethod
+    def load_checkpoint(filename: str = "writex_checkpoint.json") -> Optional[List[Dict]]:
+        """Loads a persisted structure from disk."""
+        import json
+        import os
+        if os.path.exists(filename):
+            try:
+                with open(filename, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return None
+
+    def regenerate_section(self, block: Dict, context: Dict, summary: Any) -> List[Dict]:
+        """Regenerates a specific text block. Returns the new block structure."""
+        if block.get("type") not in ["paragraph"]:
+            return [block]
+            
+        prompt = f"Rewrite and improve the following text for an academic report. Make it more professional and academic, but do not change the core meaning or add hallucinated citations:\n\n{block.get('text', '')}"
+        try:
+            completion = self.generator.client.chat.completions.create(
+                model=self.generator.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7
+            )
+            new_text = completion.choices[0].message.content
+            return [{"type": "paragraph", "text": new_text.strip()}]
+        except Exception:
+            return [block]

@@ -50,7 +50,7 @@ PARAMETER_LABELS = {
 
 def interpret_request(
     raw_text: str,
-    groq_client: Groq,
+    ai_client,
     focus_parameter: Optional[str] = None,
 ) -> SpecialRequest:
     """
@@ -58,7 +58,7 @@ def interpret_request(
 
     Args:
         raw_text: The user's freeform request string.
-        groq_client: An initialised Groq client instance.
+        ai_client: An initialised AI client instance (Groq or DeepSeek).
         focus_parameter: If set, uses a stripped-down prompt that asks only
                          for this single parameter key. Saves tokens during
                          conflict resolution re-interpretation (Option 3).
@@ -79,8 +79,8 @@ def interpret_request(
         system_prompt = _FULL_SYSTEM_PROMPT
 
     try:
-        completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        completion = ai_client.chat.completions.create(
+            model=getattr(ai_client, "default_model", "llama-3.3-70b-versatile"),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": raw_text},

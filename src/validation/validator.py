@@ -9,9 +9,10 @@ class DocumentValidator:
     before delegating to the formatting layer.
     """
 
-    def __init__(self):
+    def __init__(self, constraints=None):
         self.validation_run_count = 0
         self.max_heals = 3
+        self.constraints = constraints
 
     def validate_and_heal(self, structure: List[Dict]) -> List[Dict]:
         """
