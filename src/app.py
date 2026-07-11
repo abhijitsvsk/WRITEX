@@ -111,6 +111,16 @@ with st.sidebar:
     api_key = st.text_input(
         f"{ai_provider} API Key", type="password", value=os.environ.get(provider_env_key, "")
     )
+    st.markdown("---")
+    if st.button("🧹 Clear Session State (Start Fresh)"):
+        st.session_state.clear()
+        st.rerun()
+
+
+tab1, tab2, tab3, tab4 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)", "⚙️ Layout & Media"])
+
+
+with tab4:
     st.header("Formatting")
     style_opts = ["Standard", "IEEE", "APA", "Thesis", "Minimal"]
     sel_style = st.selectbox("Style", style_opts)
@@ -159,7 +169,7 @@ with st.sidebar:
                     "code_lang": adv_code_lang, "continuous": adv_continuous
                 }, pf)
             st.success("Preset Saved!")
-
+    
     align_map = {"Left": WD_ALIGN_PARAGRAPH.LEFT, "Center": WD_ALIGN_PARAGRAPH.CENTER, "Right": WD_ALIGN_PARAGRAPH.RIGHT, "Justify": WD_ALIGN_PARAGRAPH.JUSTIFY}
     
     style_config = StyleConfig(
@@ -183,12 +193,7 @@ with st.sidebar:
         uploaded_images = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
         image_placement = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"])
     
-    st.markdown("---")
-    if st.button("🧹 Clear Session State (Start Fresh)"):
-        st.session_state.clear()
-        st.rerun()
-
-tab1, tab2, tab3 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)"])
+    
 
 with tab1:
     txt = st.text_area("Raw Text")
@@ -842,3 +847,4 @@ with tab3:
                 st.session_state.generation_state = 'IDLE'
                 st.error(f"Failure: {e}")
                 st.text(traceback.format_exc())
+
