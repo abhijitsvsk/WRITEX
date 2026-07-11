@@ -45,7 +45,7 @@ Rules:
 3. Classify each block as: 
    - title (Document Title)
    - chapter (Level 1: e.g., "1. Introduction")
-   - heading (Top-level sections like "Aim", "Theory", "Procedure", "Code", "Output", "Conclusion". If a block is the word "OUTPUT", "CODE", or "CODE:", mark it as a heading!)
+   - heading (Top-level sections like "Aim", "Theory", "Procedure", "Code", "Output", "Conclusion". If a block is the word "Output", "OUTPUT", "Code", "CODE", or "CODE:", mark it as a heading!)
    - subheading (Level 2 sub-sections within a heading)
    - subsubheading (Level 3 sub-sections)
    - paragraph (Standard body text)
@@ -56,7 +56,7 @@ Rules:
    - image_insertion (If inserting a provided image)
 4. If you see a list of references/bibliography at the end, mark each item as "reference".
 5. If you see programming syntax (e.g. R, Python, C++), mark them as "code" and keep the formatting/newlines intact.
-6. If you see tabular data or raw execution output (like CSV dumps or terminal logs), mark it strictly as "terminal_output" and keep all original spacing/newlines. DO NOT mark the standalone word "OUTPUT" as terminal_output. It is a heading!{image_instruction}
+6. If you see tabular data or raw execution output (like CSV dumps or terminal logs), mark it strictly as "terminal_output" and keep all original spacing/newlines. DO NOT mark the standalone word "Output" or "OUTPUT" as terminal_output. It is a heading!{image_instruction}
 
 Return ONLY valid JSON in this format:
 
