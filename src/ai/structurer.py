@@ -45,7 +45,7 @@ Rules:
 3. Classify each block as: 
    - title (Document Title)
    - chapter (Level 1: e.g., "1. Introduction")
-   - heading (Top-level sections like "Aim", "Theory", "Procedure", "Code", "Output", "Conclusion". If a block is literally just the word "OUTPUT", mark it as heading!)
+   - heading (Top-level sections like "Aim", "Theory", "Procedure", "Code", "Output", "Conclusion". If a block is literally just the word "OUTPUT" or "CODE", mark it as heading!)
    - subheading (Level 2 sub-sections within a heading)
    - subsubheading (Level 3 sub-sections)
    - paragraph (Standard body text)

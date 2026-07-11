@@ -510,9 +510,10 @@ def generate_report(
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.paragraph_format.space_before = Pt(48)
             run = p.runs[0]
-            run.font.size = Pt(22)
+            # Use the user's configured heading size plus a little bump for the main title
+            run.font.size = Pt(style_config.heading_size_pt + 2)
             run.bold = True
-            run.font.name = font_name
+            run.font.name = style_config.heading_font
             p.paragraph_format.space_after = Pt(24)
             p.paragraph_format.line_spacing = 1.0
 
