@@ -30,6 +30,9 @@ class StyleConfig:
     
     # Code
     code_language: str = "Auto"
+    
+    # Layout
+    continuous_sections: bool = False
 
 def _postbuild_estimate_pages(doc):
     """
@@ -408,12 +411,16 @@ def generate_report(
             # First Chapter gets a new section (for layout), continuous page numbering
             if counters["chapter"] == 1:
                 # Add section break for layout separation
-                new_section = doc.add_section(WD_SECTION.NEW_PAGE)
+                if style_config.continuous_sections:
+                    new_section = doc.add_section(WD_SECTION.CONTINUOUS)
+                else:
+                    new_section = doc.add_section(WD_SECTION.NEW_PAGE)
                 
                 # Unlink footer from front matter
                 new_section.footer.is_linked_to_previous = False
             else:
-                doc.add_page_break()
+                if not style_config.continuous_sections:
+                    doc.add_page_break()
 
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
@@ -501,7 +508,8 @@ def generate_report(
             if text.upper() in ["LIST OF FIGURES", "TABLE OF CONTENTS", "CONTENTS"]:
                 continue
 
-            doc.add_page_break()
+            if not style_config.continuous_sections:
+                doc.add_page_break()
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = style_config.heading_alignment
@@ -515,7 +523,8 @@ def generate_report(
 
         # 4c. INSTITUTIONAL HEADER (Unnumbered, New Page, Left Aligned, Title Case)
         elif itype == "institutional_header":
-            doc.add_page_break()
+            if not style_config.continuous_sections:
+                doc.add_page_break()
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER

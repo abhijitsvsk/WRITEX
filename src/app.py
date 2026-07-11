@@ -142,10 +142,11 @@ with st.sidebar:
         
         adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")))
         
-        st.markdown("**Spacing**")
+        st.markdown("**Spacing & Layout**")
         adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25)
         adv_space_before = st.number_input("Space Before (pt)", value=preset.get("space_before", 0.0), step=1.0)
         adv_space_after = st.number_input("Space After (pt)", value=preset.get("space_after", 0.0), step=1.0)
+        adv_continuous = st.checkbox("Continuous Sections (No Page Breaks)", value=preset.get("continuous", False))
         
         if st.button("💾 Save as Preset"):
             with open("style_preset.json", "w") as pf:
@@ -154,7 +155,7 @@ with st.sidebar:
                     "h_align": adv_h_align, "h_bold": adv_h_bold, "c_font": adv_c_font,
                     "c_size": adv_c_size, "c_align": adv_c_align, "spacing": adv_spacing,
                     "space_before": adv_space_before, "space_after": adv_space_after,
-                    "code_lang": adv_code_lang
+                    "code_lang": adv_code_lang, "continuous": adv_continuous
                 }, pf)
             st.success("Preset Saved!")
 
@@ -172,7 +173,8 @@ with st.sidebar:
         line_spacing=adv_spacing,
         space_before_pt=adv_space_before,
         space_after_pt=adv_space_after,
-        code_language=adv_code_lang
+        code_language=adv_code_lang,
+        continuous_sections=adv_continuous
     )
     
     with st.expander("Insert Images"):
