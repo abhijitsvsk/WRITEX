@@ -117,7 +117,7 @@ with st.sidebar:
         st.rerun()
 
 
-tab1, tab2, tab3, tab4 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)", "⚙️ Layout & Media"])
+tab1, tab2, tab3, tab4 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)", "⚙️ Advanced Layout"])
 
 
 with tab4:
@@ -189,16 +189,20 @@ with tab4:
         continuous_sections=adv_continuous
     )
     
-    with st.expander("Insert Images"):
-        uploaded_images = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
-        image_placement = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"])
     
     
 
 with tab1:
+    st.markdown("### Step 1: Provide Content")
     txt = st.text_area("Raw Text")
+    
+    st.markdown("### Step 2: Attach Media (Optional)")
+    uploaded_images_t1 = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="img_t1")
+    image_placement_t1 = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"], key="place_t1")
+    
+    st.markdown("### Step 3: Generate Document")
     if st.button("Format Text"):
-        run_formatting(txt, api_key, sel_style, style_config, uploaded_images, image_placement)
+        run_formatting(txt, api_key, sel_style, style_config, uploaded_images_t1, image_placement_t1)
 
 with tab2:
     upl = st.file_uploader("Upload Doc/Txt")
