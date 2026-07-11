@@ -117,49 +117,48 @@ with st.sidebar:
         st.rerun()
 
 
-tab1, tab2, tab3, tab4 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)", "⚙️ Advanced Layout"])
+tab1, tab2, tab3 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)"])
 
 
-with tab4:
-    st.header("Formatting")
-    style_opts = ["Standard", "IEEE", "APA", "Thesis", "Minimal"]
-    sel_style = st.selectbox("Style", style_opts)
+def render_advanced_settings(key_suffix):
+    import json
+    import os
+    from src.file_formatting.formatting import StyleConfig
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
     
-    with st.expander("Advanced Custom Formatting"):
+    preset = {}
+    if os.path.exists("style_preset.json"):
+        try:
+            with open("style_preset.json", "r") as pf:
+                preset = json.load(pf)
+        except:
+            pass
+            
+    with st.expander("⚙️ Advanced Layout & Formatting (Optional)"):
         st.caption("Override template with granular rules")
-        # Load preset if exists
-        import json
-        preset = {}
-        if os.path.exists("style_preset.json"):
-            try:
-                with open("style_preset.json", "r") as pf:
-                    preset = json.load(pf)
-            except:
-                pass
-                
-        adv_margin = st.number_input("Margin (Inches)", value=preset.get("margin", 1.0), step=0.25)
+        adv_margin = st.number_input("Margin (Inches)", value=preset.get("margin", 1.0), step=0.25, key="margin"+key_suffix)
         
         st.markdown("**Headings**")
-        adv_h_font = st.selectbox("Heading Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("h_font", "Times New Roman")))
-        adv_h_size = st.number_input("Heading Size (pt)", value=preset.get("h_size", 14.0), step=1.0)
-        adv_chap_align = st.selectbox("Chapter/Title Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("chap_align", "Center")))
-        adv_subh_align = st.selectbox("Sub-Heading Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("subh_align", "Left")))
-        adv_h_bold = st.checkbox("Heading Bold", value=preset.get("h_bold", True))
+        adv_h_font = st.selectbox("Heading Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("h_font", "Times New Roman")), key="hfont"+key_suffix)
+        adv_h_size = st.number_input("Heading Size (pt)", value=preset.get("h_size", 14.0), step=1.0, key="hsize"+key_suffix)
+        adv_chap_align = st.selectbox("Chapter/Title Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("chap_align", "Center")), key="calign"+key_suffix)
+        adv_subh_align = st.selectbox("Sub-Heading Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("subh_align", "Left")), key="salign"+key_suffix)
+        adv_h_bold = st.checkbox("Heading Bold", value=preset.get("h_bold", True), key="hbold"+key_suffix)
         
         st.markdown("**Content & Code**")
-        adv_c_font = st.selectbox("Content Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("c_font", "Times New Roman")))
-        adv_c_size = st.number_input("Content Size (pt)", value=preset.get("c_size", 12.0), step=1.0)
-        adv_c_align = st.selectbox("Content Alignment", ["Left", "Center", "Right", "Justify"], index=["Left", "Center", "Right", "Justify"].index(preset.get("c_align", "Justify")))
+        adv_c_font = st.selectbox("Content Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("c_font", "Times New Roman")), key="cfont"+key_suffix)
+        adv_c_size = st.number_input("Content Size (pt)", value=preset.get("c_size", 12.0), step=1.0, key="csize"+key_suffix)
+        adv_c_align = st.selectbox("Content Alignment", ["Left", "Center", "Right", "Justify"], index=["Left", "Center", "Right", "Justify"].index(preset.get("c_align", "Justify")), key="coalign"+key_suffix)
         
-        adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")))
+        adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")), key="codelang"+key_suffix)
         
         st.markdown("**Spacing & Layout**")
-        adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25)
-        adv_space_before = st.number_input("Space Before (pt)", value=preset.get("space_before", 0.0), step=1.0)
-        adv_space_after = st.number_input("Space After (pt)", value=preset.get("space_after", 0.0), step=1.0)
-        adv_continuous = st.checkbox("Continuous Sections (No Page Breaks)", value=preset.get("continuous", False))
+        adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25, key="spacing"+key_suffix)
+        adv_space_before = st.number_input("Space Before (pt)", value=preset.get("space_before", 0.0), step=1.0, key="sbefore"+key_suffix)
+        adv_space_after = st.number_input("Space After (pt)", value=preset.get("space_after", 0.0), step=1.0, key="safter"+key_suffix)
+        adv_continuous = st.checkbox("Continuous Sections (No Page Breaks)", value=preset.get("continuous", False), key="cont"+key_suffix)
         
-        if st.button("💾 Save as Preset"):
+        if st.button("💾 Save as Preset", key="save"+key_suffix):
             with open("style_preset.json", "w") as pf:
                 json.dump({
                     "margin": adv_margin, "h_font": adv_h_font, "h_size": adv_h_size, 
@@ -169,7 +168,7 @@ with tab4:
                     "code_lang": adv_code_lang, "continuous": adv_continuous
                 }, pf)
             st.success("Preset Saved!")
-    
+
     align_map = {"Left": WD_ALIGN_PARAGRAPH.LEFT, "Center": WD_ALIGN_PARAGRAPH.CENTER, "Right": WD_ALIGN_PARAGRAPH.RIGHT, "Justify": WD_ALIGN_PARAGRAPH.JUSTIFY}
     
     style_config = StyleConfig(
@@ -188,9 +187,8 @@ with tab4:
         code_language=adv_code_lang,
         continuous_sections=adv_continuous
     )
-    
-    
-    
+    return style_config
+
 
 with tab1:
     st.markdown("### Step 1: Provide Content")
@@ -200,24 +198,37 @@ with tab1:
     uploaded_images_t1 = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="img_t1")
     image_placement_t1 = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"], key="place_t1")
     
-    st.markdown("### Step 3: Generate Document")
+    st.markdown("### Step 3: Advanced Layout (Optional)")
+    style_config_t1 = render_advanced_settings("_t1")
+    
+    st.markdown("### Step 4: Generate Document")
     if st.button("Format Text"):
-        run_formatting(txt, api_key, sel_style, style_config, uploaded_images_t1, image_placement_t1)
+        run_formatting(txt, api_key, sel_style, style_config_t1, uploaded_images_t1, image_placement_t1)
 
 with tab2:
+    st.markdown("### Step 1: Provide Content")
     upl = st.file_uploader("Upload Doc/Txt")
+    
+    st.markdown("### Step 2: Attach Media (Optional)")
+    uploaded_images_t2 = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="img_t2")
+    image_placement_t2 = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"], key="place_t2")
+    
+    st.markdown("### Step 3: Advanced Layout (Optional)")
+    style_config_t2 = render_advanced_settings("_t2")
+    
+    st.markdown("### Step 4: Generate Document")
     if upl and st.button("Format File"):
         if upl.name.endswith('.txt'):
             file_txt = upl.getvalue().decode('utf-8')
         elif upl.name.endswith('.pdf'):
             import pypdf
             reader = pypdf.PdfReader(upl)
-            file_txt = "\\n".join([p.extract_text() for p in reader.pages])
+            file_txt = "\n".join([p.extract_text() for p in reader.pages])
         else:
             from docx import Document
             doc = Document(upl)
-            file_txt = "\\n".join([p.text for p in doc.paragraphs])
-        run_formatting(file_txt, api_key, sel_style, style_config, uploaded_images, image_placement)
+            file_txt = "\n".join([p.text for p in doc.paragraphs])
+        run_formatting(file_txt, api_key, sel_style, style_config_t2, uploaded_images_t2, image_placement_t2)
 
 with tab3:
     st.header("Code to B.Tech Report")
