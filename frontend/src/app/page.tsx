@@ -156,6 +156,8 @@ export default function Home() {
   const [margin, setMargin] = useState("25");
   const [cAlign, setCAlign] = useState("Justify");
   const [codeLang, setCodeLang] = useState("Auto");
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePlacement, setImagePlacement] = useState("Let AI Decide");
 
   const [projZip, setProjZip] = useState<File|null>(null);
   const [githubUrl, setGithubUrl] = useState("");
@@ -196,6 +198,10 @@ export default function Home() {
         line_spacing: +spacing, space_before_pt: 0, space_after_pt: 0,
         code_language: codeLang, continuous_sections: false,
       }));
+      fd.append("image_placement", imagePlacement);
+      if (images && images.length > 0) {
+        images.forEach(img => fd.append("images", img));
+      }
       if (activeTab === "text") {
         if (!text.trim()) { setError("Paste some text first."); setLoading(false); return; }
         fd.append("text", text);
@@ -450,6 +456,46 @@ export default function Home() {
                     </span>
                   </div>
                   <TextAreaInput value={text} onChange={setText} placeholder={"// Paste your research notes, raw data,\n// or academic draft here for AI synthesis…"} />
+                </div>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <Label>Supporting Images (Optional)</Label>
+                    <div style={{ 
+                      border: `1px dashed ${C.borderDef}`, borderRadius: 8, padding: 12, 
+                      display: "flex", flexDirection: "column", gap: 8, background: C.bgElevated
+                    }}>
+                      <input 
+                        type="file" multiple accept="image/*" 
+                        onChange={e => e.target.files && setImages(Array.from(e.target.files))} 
+                        style={{ fontSize: 12, color: C.textSec }}
+                      />
+                      {images.length > 0 && (
+                        <div style={{ fontSize: 11, color: C.accent }}>{images.length} images selected</div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Image Placement</Label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {["Let AI Decide", "Top", "Bottom"].map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setImagePlacement(opt)}
+                          style={{
+                            flex: 1, padding: "8px 0",
+                            background: imagePlacement === opt ? C.accentDim : "transparent",
+                            border: `1px solid ${imagePlacement === opt ? C.accent : C.borderDef}`,
+                            borderRadius: 6, color: imagePlacement === opt ? C.textPri : C.textSec,
+                            fontSize: 11, fontWeight: imagePlacement === opt ? 600 : 500,
+                            cursor: "pointer", transition: "all 0.15s"
+                          }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <AdvancedLayout {...{hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,cAlign,setCAlign,codeLang,setCodeLang}} />
                 <GenerateButton loading={loading} label="Generate Document" onClick={() => handleGenerate()} />
