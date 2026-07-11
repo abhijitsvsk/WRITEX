@@ -9,8 +9,11 @@ import re
 from src.ai.structurer import structure_text
 from src.file_formatting.formatting import generate_report, StyleConfig
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from src.api_academic import router as academic_router
 
 app = FastAPI(title="WriteX API", description="Academic Report Generation API")
+
+app.include_router(academic_router)
 
 # Setup CORS for frontend
 app.add_middleware(
