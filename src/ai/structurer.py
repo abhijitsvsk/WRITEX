@@ -4,7 +4,7 @@ from groq import Groq
 from .utils import generate_with_retry
 
 
-def structure_text(raw_text, api_key=None, style_name="Standard"):
+def structure_text(raw_text, api_key=None, style_name="Standard", available_images=None):
     if not api_key:
         api_key = os.getenv("GROQ_API_KEY")
 
@@ -21,6 +21,16 @@ def structure_text(raw_text, api_key=None, style_name="Standard"):
         casing_instruction = "HEADINGS must be in Sentence case (only first word capitalized, except proper nouns)."
     elif style_name in ["Chicago", "MLA"]:
         casing_instruction = "HEADINGS must be in Title Case (Capitalize Major Words)."
+
+    image_instruction = ""
+    if available_images:
+        image_list = ", ".join(available_images)
+        image_instruction = f"""
+7. **IMAGE INSERTION**: You have the following images available to insert: [{image_list}].
+   To insert an image at the most logically relevant position in the text, emit a block like:
+   {{ "type": "image_insertion", "filename": "exact_filename.png" }}
+   Do not make up filenames. Only use the ones provided.
+"""
 
     prompt = f"""
 You are a document structure detection system.
@@ -43,9 +53,10 @@ Rules:
    - code (Programming code snippets)
    - terminal_output (Raw tabular data, console logs, or execution output)
    - figure_caption (Captions starting with "Figure X:")
+   - image_insertion (If inserting a provided image)
 4. If you see a list of references/bibliography at the end, mark each item as "reference".
 5. If you see code snippets (often in triple backticks), mark them as "code" and keep the formatting intact.
-6. If you see tabular data or raw execution output (like CSV dumps or terminal logs), mark it strictly as "terminal_output" and keep all original spacing/newlines.
+6. If you see tabular data or raw execution output (like CSV dumps or terminal logs), mark it strictly as "terminal_output" and keep all original spacing/newlines.{image_instruction}
 
 Return ONLY valid JSON in this format:
 

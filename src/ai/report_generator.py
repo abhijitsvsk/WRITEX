@@ -227,6 +227,12 @@ class ReportGenerator:
             else:
                 inspiration_rule = f"8. **INSPIRATION FORMATTING**: You have been provided with an Inspiration File. Maintain your original narrative structure, but adopt the general tone of this Inspiration File context:\n---\n{inspiration_text[:4000]}\n---"
 
+        available_images = user_context.get("available_images", [])
+        image_rule = ""
+        if available_images:
+            image_list = ", ".join(available_images)
+            image_rule = f"9. **IMAGE INSERTION**: You have the following images available to insert: [{image_list}]. To insert an image at the most logically relevant position in this subsection, emit a block of type 'image_insertion' with the 'filename' key. Do not hallucinate filenames."
+
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
         You are an expert Academic Editor and Strategic System Architect writing a formal B.Tech Project Report.
@@ -243,9 +249,10 @@ class ReportGenerator:
         OUTPUT FORMAT (CRITICAL JSON SCHEMA):
         You MUST return a strictly valid JSON object. 
         The JSON object must contain a single root key "blocks" containing a list of objects.
-        Each object in the "blocks" list must have a "type" key (either "paragraph" or "code_extraction").
+        Each object in the "blocks" list must have a "type" key (either "paragraph", "code_extraction", or "image_insertion").
         - For text paragraphs, use type "paragraph" and put the academic text in the "text" key.
         - For code extraction, use type "code_extraction" and put the exact function or class name from the valid targets list into the "target_name" key.
+        - For image insertion, use type "image_insertion" and put the exact filename in the "filename" key.
         
         JSON Example:
         {{
@@ -263,7 +270,9 @@ class ReportGenerator:
         {code_rule}
         {figure_rule}
         7. **STRICT LENGTH**: The combined text of all paragraphs should be roughly 300-350 words. Do not trail off or include meta-commentary.
+        8. **PRONOUNS**: {user_context.get('pronoun_mode', 'Always use third-person objective ("The system", "This project"). DO NOT use "We", "I", "Our", or "My".')}
         {inspiration_rule}
+        {image_rule}
         """
 
         result = generate_with_retry(self.model, prompt, response_format={"type": "json_object"})

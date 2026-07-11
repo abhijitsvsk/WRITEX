@@ -40,7 +40,7 @@ from src.core.compiler import DocumentCompiler, REPORT_SCHEMA
 from src.validation.validator import DocumentValidator
 
 
-def run_formatting(text_content, api_key_val, style_name, style_cfg):
+def run_formatting(text_content, api_key_val, style_name, style_cfg, uploaded_images=None, image_placement=None):
     # Keep lightweight formatting for Tabs 1 & 2
     from src.ai.structurer import structure_text
 
@@ -48,11 +48,41 @@ def run_formatting(text_content, api_key_val, style_name, style_cfg):
         return
     with st.spinner("Structuring..."):
         try:
+            image_names = [img.name for img in uploaded_images] if uploaded_images else []
             struct = structure_text(
-                text_content, api_key=api_key_val, style_name=style_name
+                text_content, api_key=api_key_val, style_name=style_name, available_images=image_names
             )
             json_match = re.search(r"\[.*\]", struct, re.DOTALL)
             data = json.loads(json_match.group(0)) if json_match else []
+
+            # Handle Image AST Injection
+            if uploaded_images:
+                img_nodes = [{"type": "image", "content": img.getvalue(), "filename": img.name} for img in uploaded_images]
+                
+                if image_placement == "Top":
+                    data = img_nodes + data
+                elif image_placement == "Bottom":
+                    data = data + img_nodes
+                else:
+                    # Let AI Decide logic
+                    # The AI emitted {"type": "image_insertion", "filename": "x.png"}
+                    new_data = []
+                    for block in data:
+                        if block.get("type") == "image_insertion":
+                            fname = block.get("filename")
+                            matched = next((node for node in img_nodes if node["filename"] == fname), None)
+                            if matched:
+                                new_data.append(matched)
+                        else:
+                            new_data.append(block)
+                    
+                    # Also append any leftover images that the AI missed (optional, but good for UX)
+                    used_fnames = [b.get("filename") for b in new_data if b.get("type") == "image"]
+                    for node in img_nodes:
+                        if node["filename"] not in used_fnames:
+                            new_data.append(node)
+                            
+                    data = new_data
 
             buf = io.BytesIO()
             generate_report(data, buf, style_name=style_name, style_config=style_cfg)
@@ -145,6 +175,10 @@ with st.sidebar:
         code_language=adv_code_lang
     )
     
+    with st.expander("Insert Images"):
+        uploaded_images = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+        image_placement = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"])
+    
     st.markdown("---")
     if st.button("🧹 Clear Session State (Start Fresh)"):
         st.session_state.clear()
@@ -155,7 +189,7 @@ tab1, tab2, tab3 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Str
 with tab1:
     txt = st.text_area("Raw Text")
     if st.button("Format Text"):
-        run_formatting(txt, api_key, sel_style, style_config)
+        run_formatting(txt, api_key, sel_style, style_config, uploaded_images, image_placement)
 
 with tab2:
     upl = st.file_uploader("Upload Doc/Txt")
@@ -170,7 +204,7 @@ with tab2:
             from docx import Document
             doc = Document(upl)
             file_txt = "\\n".join([p.text for p in doc.paragraphs])
-        run_formatting(file_txt, api_key, sel_style, style_config)
+        run_formatting(file_txt, api_key, sel_style, style_config, uploaded_images, image_placement)
 
 with tab3:
     st.header("Code to B.Tech Report")
@@ -711,6 +745,10 @@ with tab3:
                             status_text.text(text)
                             progress_bar.progress(min(ratio, 1.0))
 
+                        # Pass available images to context
+                        if uploaded_images:
+                            context["available_images"] = [img.name for img in uploaded_images]
+
                         full_structure = compiler.compile_structure(
                             context, summary, progress_callback=update_progress,
                             constraints=resolved,
@@ -734,6 +772,35 @@ with tab3:
 
                 # --- 5. RENDER ---
                 st.success("✅ Rendering DOCX...")
+                
+                # Handle Image AST Injection for Tab 3
+                if uploaded_images:
+                    img_nodes = [{"type": "image", "content": img.getvalue(), "filename": img.name} for img in uploaded_images]
+                    
+                    if image_placement == "Top":
+                        healed_structure = img_nodes + healed_structure
+                    elif image_placement == "Bottom":
+                        healed_structure = healed_structure + img_nodes
+                    else:
+                        # Let AI Decide logic
+                        new_data = []
+                        for block in healed_structure:
+                            if block.get("type") == "image_insertion":
+                                fname = block.get("filename")
+                                matched = next((node for node in img_nodes if node["filename"] == fname), None)
+                                if matched:
+                                    new_data.append(matched)
+                            else:
+                                new_data.append(block)
+                        
+                        # Also append any leftover images that the AI missed (optional, but good for UX)
+                        used_fnames = [b.get("filename") for b in new_data if b.get("type") == "image"]
+                        for node in img_nodes:
+                            if node["filename"] not in used_fnames:
+                                new_data.append(node)
+                                
+                        healed_structure = new_data
+
                 buf = io.BytesIO()
                 generate_report(healed_structure, buf, style_name=sel_style, style_config=style_config)
                 
