@@ -1006,10 +1006,18 @@ def _verify_mandatory_rules(doc, style_config: StyleConfig):
         # But for margin properties, it returns an integer corresponding to EMU.
         expected_emu = int(style_config.margin_inches * 914400)
         
-        left_margin = sec.left_margin
-        # Allow small floating point drift
-        if abs(left_margin - expected_emu) > 1000:
-            errors.append(f"Margin mismatch: Expected {style_config.margin_inches} in ({expected_emu} EMU), got {left_margin} EMU")
+        # Check all four sides
+        margins = {
+            "Left": sec.left_margin,
+            "Right": sec.right_margin,
+            "Top": sec.top_margin,
+            "Bottom": sec.bottom_margin
+        }
+        
+        for side, margin_val in margins.items():
+            # Allow small floating point drift
+            if abs(margin_val - expected_emu) > 1000:
+                errors.append(f"{side} Margin mismatch: Expected {style_config.margin_inches} in ({expected_emu} EMU), got {margin_val} EMU")
             
     # If there are errors, print them. Otherwise print a clean success.
     if errors:
