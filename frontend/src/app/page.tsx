@@ -447,7 +447,23 @@ export default function Home() {
 
             {/* ── PASTE TEXT ── */}
             {activeTab === "text" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div 
+                style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  const newImages: File[] = [];
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf("image") !== -1) {
+                      const file = items[i].getAsFile();
+                      if (file) newImages.push(file);
+                    }
+                  }
+                  if (newImages.length > 0) {
+                    setImages(prev => [...prev, ...newImages]);
+                  }
+                }}
+              >
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <Label>Source Input</Label>
@@ -460,7 +476,7 @@ export default function Home() {
                 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
-                    <Label>Supporting Images (Optional)</Label>
+                    <Label>Supporting Images (Upload or Paste)</Label>
                     <div style={{ 
                       border: `1px dashed ${C.borderDef}`, borderRadius: 8, padding: 12, 
                       display: "flex", flexDirection: "column", gap: 8, background: C.bgElevated
