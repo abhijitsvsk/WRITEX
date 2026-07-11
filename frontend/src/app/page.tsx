@@ -150,8 +150,9 @@ export default function Home() {
 
   const [text, setText] = useState("");
   const [file, setFile] = useState<File|null>(null);
-  const [hFont, setHFont] = useState("Times New Roman");
-  const [hSize, setHSize] = useState("14");
+  const [hFont, setHFont] = useState("Arial");
+  const [hSize, setHSize] = useState("16");
+  const [tSize, setTSize] = useState("22");
   const [spacing, setSpacing] = useState("1.5");
   const [margin, setMargin] = useState("25");
   const [cAlign, setCAlign] = useState("Justify");
@@ -195,6 +196,7 @@ export default function Home() {
       fd.append("style_name", "Academic");
       fd.append("style_config", JSON.stringify({
         margin_inches: +margin / 25.4, heading_font: hFont, heading_size_pt: +hSize,
+        title_size_pt: +tSize,
         heading_bold: true, chapter_alignment: cAlign, subheading_alignment: cAlign,
         content_font: "Times New Roman", content_size_pt: 12, content_alignment: cAlign,
         line_spacing: +spacing, space_before_pt: 0, space_after_pt: 0,
@@ -517,7 +519,7 @@ export default function Home() {
                   </div>
                 </div>
                 <AdvancedLayout {...{
-                  hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,
+                  hFont,setHFont,hSize,setHSize,tSize,setTSize,spacing,setSpacing,margin,setMargin,
                   cAlign,setCAlign,codeLang,setCodeLang,
                   autoNumbering,setAutoNumbering,continuousSections,setContinuousSections
                 }} />
@@ -530,7 +532,7 @@ export default function Home() {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <Dropzone file={file} onFile={setFile} accept=".txt,.pdf,.docx" label="Drop your document (PDF, DOCX, TXT)" />
                 <AdvancedLayout {...{
-                  hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,
+                  hFont,setHFont,hSize,setHSize,tSize,setTSize,spacing,setSpacing,margin,setMargin,
                   cAlign,setCAlign,codeLang,setCodeLang,
                   autoNumbering,setAutoNumbering,continuousSections,setContinuousSections
                 }} />
@@ -914,7 +916,7 @@ function GenerateButton({ loading, label, onClick }: { loading: boolean; label: 
 }
 
 const AdvancedLayout = ({
-  hFont, setHFont, hSize, setHSize, spacing, setSpacing, margin, setMargin,
+  hFont, setHFont, hSize, setHSize, tSize, setTSize, spacing, setSpacing, margin, setMargin,
   cAlign, setCAlign, codeLang, setCodeLang, autoNumbering, setAutoNumbering,
   continuousSections, setContinuousSections
 }: any) => {
@@ -924,12 +926,15 @@ const AdvancedLayout = ({
         <Icon name="tune" size={14} color={C.textMuted} />
         <span style={{ fontSize: 10.5, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.09em", fontFamily: "'JetBrains Mono', monospace" }}>Advanced Layout Settings</span>
       </div>
-      <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
         <div><Label>Heading Font</Label>
           <Select value={hFont} onChange={setHFont} options={["Times New Roman","Arial","Calibri","Helvetica","Georgia"]} />
         </div>
-        <div><Label>Font Size (pt)</Label>
+        <div><Label>Heading Size</Label>
           <Input value={hSize} onChange={setHSize} type="number" mono />
+        </div>
+        <div><Label>Title Size</Label>
+          <Input value={tSize} onChange={setTSize} type="number" mono />
         </div>
         <div><Label>Line Spacing</Label>
           <Input value={spacing} onChange={setSpacing} type="number" mono />
