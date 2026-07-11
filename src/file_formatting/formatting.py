@@ -609,52 +609,58 @@ def generate_report(
             p.paragraph_format.line_spacing = 1.15
 
             # Syntax highlighting using Pygments (if available, else fallback)
-            try:
-                from pygments import lex
-                from pygments.lexers import get_lexer_for_filename, guess_lexer
-                from pygments.styles import get_style_by_name
-                
-                try:
-                    if style_config.code_language and style_config.code_language != "Auto":
-                        from pygments.lexers import get_lexer_by_name
-                        try:
-                            lexer = get_lexer_by_name(style_config.code_language.lower())
-                        except Exception:
-                            lexer = guess_lexer(text)
-                    else:
-                        lexer = guess_lexer(text)
-                except Exception:
-                    from pygments.lexers import PythonLexer
-                    lexer = PythonLexer()
-                    
-                style = get_style_by_name("monokai")
-                
-                for token, content in lex(text, lexer):
-                    if not content:
-                        continue
-                    run = p.add_run(content)
-                    run.font.name = "Courier New"
-                    run.font.size = Pt(style_config.content_size_pt) # Adhere to constraint!
-                    
-                    # Apply color from pygments style
-                    if token in style.styles:
-                        color_hex = style.styles[token]
-                        if color_hex and color_hex.startswith("#"):
-                            color_hex = color_hex[1:]
-                            if len(color_hex) == 6:
-                                r, g, b = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
-                                run.font.color.rgb = RGBColor(r, g, b)
-                        elif "bold" in style.styles[token]:
-                            run.bold = True
-                    
-                    if not run.font.color.rgb:
-                        run.font.color.rgb = RGBColor(248, 248, 242) # Default text color (off-white)
-            except ImportError:
-                # Fallback to plain text
+            if style_config.code_language == "None":
                 run = p.add_run(text)
                 run.font.name = "Courier New"
                 run.font.size = Pt(style_config.content_size_pt)
-                run.font.color.rgb = RGBColor(248, 248, 242)
+                run.font.color.rgb = RGBColor(255, 255, 255)
+            else:
+                try:
+                    from pygments import lex
+                    from pygments.lexers import get_lexer_for_filename, guess_lexer
+                    from pygments.styles import get_style_by_name
+                    
+                    try:
+                        if style_config.code_language and style_config.code_language != "Auto":
+                            from pygments.lexers import get_lexer_by_name
+                            try:
+                                lexer = get_lexer_by_name(style_config.code_language.lower())
+                            except Exception:
+                                lexer = guess_lexer(text)
+                        else:
+                            lexer = guess_lexer(text)
+                    except Exception:
+                        from pygments.lexers import PythonLexer
+                        lexer = PythonLexer()
+                        
+                    style = get_style_by_name("monokai")
+                    
+                    for token, content in lex(text, lexer):
+                        if not content:
+                            continue
+                        run = p.add_run(content)
+                        run.font.name = "Courier New"
+                        run.font.size = Pt(style_config.content_size_pt)
+                        
+                        # Apply color from pygments style
+                        if token in style.styles:
+                            color_hex = style.styles[token]
+                            if color_hex and color_hex.startswith("#"):
+                                color_hex = color_hex[1:]
+                                if len(color_hex) == 6:
+                                    r, g, b = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+                                    run.font.color.rgb = RGBColor(r, g, b)
+                            elif "bold" in style.styles[token]:
+                                run.bold = True
+                        
+                        if not run.font.color.rgb:
+                            run.font.color.rgb = RGBColor(248, 248, 242)
+                except ImportError:
+                    # Fallback to plain text
+                    run = p.add_run(text)
+                    run.font.name = "Courier New"
+                    run.font.size = Pt(style_config.content_size_pt)
+                    run.font.color.rgb = RGBColor(248, 248, 242)
 
         # 9. TERMINAL OUTPUT (Tabular data, console logs)
         elif itype == "terminal_output":

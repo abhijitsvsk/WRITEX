@@ -140,7 +140,7 @@ with st.sidebar:
         adv_c_size = st.number_input("Content Size (pt)", value=preset.get("c_size", 12.0), step=1.0)
         adv_c_align = st.selectbox("Content Alignment", ["Left", "Center", "Right", "Justify"], index=["Left", "Center", "Right", "Justify"].index(preset.get("c_align", "Justify")))
         
-        adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")))
+        adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")))
         
         st.markdown("**Spacing & Layout**")
         adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25)
