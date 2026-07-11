@@ -34,6 +34,7 @@ class StyleConfig:
     
     # Layout
     continuous_sections: bool = False
+    auto_numbering: bool = True
 
 def _postbuild_estimate_pages(doc):
     """
@@ -429,7 +430,10 @@ def generate_report(
             p.alignment = style_config.chapter_alignment
 
             # Use Title Case for Chapter Titles
-            run = p.add_run(f"Chapter {counters['chapter']} {text.title()}")
+            if style_config.auto_numbering:
+                run = p.add_run(f"Chapter {counters['chapter']} {text.title()}")
+            else:
+                run = p.add_run(text.title())
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(style_config.heading_size_pt)
@@ -463,7 +467,7 @@ def generate_report(
             p.style = doc.styles["Heading 2"]
             p.alignment = style_config.chapter_alignment
 
-            if counters['chapter'] > 0:
+            if counters['chapter'] > 0 and style_config.auto_numbering:
                 prefix = f"{counters['chapter']}.{counters['sub']} "
                 run = p.add_run(f"{prefix}{text.title()}")
             else:
@@ -485,7 +489,7 @@ def generate_report(
             p.style = doc.styles["Heading 3"]
             p.alignment = style_config.subheading_alignment
 
-            if counters['chapter'] > 0:
+            if counters['chapter'] > 0 and style_config.auto_numbering:
                 prefix = f"{counters['chapter']}.{counters['sub']}.{counters['subsub']} "
                 run = p.add_run(f"{prefix}{text.title()}")
             else:

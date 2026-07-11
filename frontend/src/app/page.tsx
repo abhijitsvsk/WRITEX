@@ -158,6 +158,8 @@ export default function Home() {
   const [codeLang, setCodeLang] = useState("Auto");
   const [images, setImages] = useState<File[]>([]);
   const [imagePlacement, setImagePlacement] = useState("Let AI Decide");
+  const [autoNumbering, setAutoNumbering] = useState(false);
+  const [continuousSections, setContinuousSections] = useState(true);
 
   const [projZip, setProjZip] = useState<File|null>(null);
   const [githubUrl, setGithubUrl] = useState("");
@@ -196,7 +198,8 @@ export default function Home() {
         heading_bold: true, chapter_alignment: cAlign, subheading_alignment: cAlign,
         content_font: "Times New Roman", content_size_pt: 12, content_alignment: cAlign,
         line_spacing: +spacing, space_before_pt: 0, space_after_pt: 0,
-        code_language: codeLang, continuous_sections: false,
+        code_language: codeLang, continuous_sections: continuousSections,
+        auto_numbering: autoNumbering
       }));
       fd.append("image_placement", imagePlacement);
       if (images && images.length > 0) {
@@ -513,7 +516,11 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <AdvancedLayout {...{hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,cAlign,setCAlign,codeLang,setCodeLang}} />
+                <AdvancedLayout {...{
+                  hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,
+                  cAlign,setCAlign,codeLang,setCodeLang,
+                  autoNumbering,setAutoNumbering,continuousSections,setContinuousSections
+                }} />
                 <GenerateButton loading={loading} label="Generate Document" onClick={() => handleGenerate()} />
               </div>
             )}
@@ -522,7 +529,11 @@ export default function Home() {
             {activeTab === "upload" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <Dropzone file={file} onFile={setFile} accept=".txt,.pdf,.docx" label="Drop your document (PDF, DOCX, TXT)" />
-                <AdvancedLayout {...{hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,cAlign,setCAlign,codeLang,setCodeLang}} />
+                <AdvancedLayout {...{
+                  hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,
+                  cAlign,setCAlign,codeLang,setCodeLang,
+                  autoNumbering,setAutoNumbering,continuousSections,setContinuousSections
+                }} />
                 <GenerateButton loading={loading} label="Format Document" onClick={() => handleGenerate()} />
               </div>
             )}
@@ -902,23 +913,18 @@ function GenerateButton({ loading, label, onClick }: { loading: boolean; label: 
   );
 }
 
-interface AdvancedLayoutProps {
-  hFont: string; setHFont: (v: string) => void;
-  hSize: string; setHSize: (v: string) => void;
-  spacing: string; setSpacing: (v: string) => void;
-  margin: string; setMargin: (v: string) => void;
-  cAlign: string; setCAlign: (v: string) => void;
-  codeLang: string; setCodeLang: (v: string) => void;
-}
-
-function AdvancedLayout({ hFont, setHFont, hSize, setHSize, spacing, setSpacing, margin, setMargin, cAlign, setCAlign, codeLang, setCodeLang }: AdvancedLayoutProps) {
+const AdvancedLayout = ({
+  hFont, setHFont, hSize, setHSize, spacing, setSpacing, margin, setMargin,
+  cAlign, setCAlign, codeLang, setCodeLang, autoNumbering, setAutoNumbering,
+  continuousSections, setContinuousSections
+}: any) => {
   return (
     <div style={{ background: C.bgElevated, border: `1px solid ${C.borderSubtle}`, borderRadius: 10, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", borderBottom: `1px solid ${C.borderFaint}`, background: "rgba(255,255,255,0.015)" }}>
         <Icon name="tune" size={14} color={C.textMuted} />
         <span style={{ fontSize: 10.5, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.09em", fontFamily: "'JetBrains Mono', monospace" }}>Advanced Layout Settings</span>
       </div>
-      <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
+      <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         <div><Label>Heading Font</Label>
           <Select value={hFont} onChange={setHFont} options={["Times New Roman","Arial","Calibri","Helvetica","Georgia"]} />
         </div>
@@ -948,8 +954,42 @@ function AdvancedLayout({ hFont, setHFont, hSize, setHSize, spacing, setSpacing,
           </div>
         </div>
         <div><Label>Code Style</Label>
-          <Select value={codeLang} onChange={setCodeLang} options={["Auto","Python","JavaScript","Java","C++","Go"]} />
+          <Select value={codeLang} onChange={setCodeLang} options={["Auto","Python","JavaScript","Java","C++","Go","R","None"]} />
         </div>
+        {autoNumbering !== undefined && (
+          <div>
+            <Label>Auto Numbering</Label>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => setAutoNumbering(true)} style={{
+                flex: 1, height: 36, background: autoNumbering ? C.accentDim : "transparent",
+                border: `1px solid ${autoNumbering ? C.accent : C.borderDef}`,
+                borderRadius: 8, color: autoNumbering ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
+              }}>On</button>
+              <button onClick={() => setAutoNumbering(false)} style={{
+                flex: 1, height: 36, background: !autoNumbering ? C.accentDim : "transparent",
+                border: `1px solid ${!autoNumbering ? C.accent : C.borderDef}`,
+                borderRadius: 8, color: !autoNumbering ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
+              }}>Off</button>
+            </div>
+          </div>
+        )}
+        {continuousSections !== undefined && (
+          <div>
+            <Label>Page Breaks</Label>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => setContinuousSections(false)} style={{
+                flex: 1, height: 36, background: !continuousSections ? C.accentDim : "transparent",
+                border: `1px solid ${!continuousSections ? C.accent : C.borderDef}`,
+                borderRadius: 8, color: !continuousSections ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
+              }}>Strict</button>
+              <button onClick={() => setContinuousSections(true)} style={{
+                flex: 1, height: 36, background: continuousSections ? C.accentDim : "transparent",
+                border: `1px solid ${continuousSections ? C.accent : C.borderDef}`,
+                borderRadius: 8, color: continuousSections ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
+              }}>Continuous</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
