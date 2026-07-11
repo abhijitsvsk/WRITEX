@@ -599,7 +599,11 @@ def generate_report(
             shd = OxmlElement("w:shd")
             shd.set(ns.qn("w:val"), "clear")
             shd.set(ns.qn("w:color"), "auto")
-            shd.set(ns.qn("w:fill"), "282C34") # Monokai dark background
+            
+            if style_config.code_language == "None":
+                shd.set(ns.qn("w:fill"), "F5F5F5") # Light gray background for printing
+            else:
+                shd.set(ns.qn("w:fill"), "282C34") # Monokai dark background
             tcPr.append(shd)
 
             p = cell.paragraphs[0]
@@ -613,7 +617,7 @@ def generate_report(
                 run = p.add_run(text)
                 run.font.name = "Courier New"
                 run.font.size = Pt(style_config.content_size_pt)
-                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.font.color.rgb = RGBColor(0, 0, 0) # Black text for light background
             else:
                 try:
                     from pygments import lex
