@@ -27,6 +27,9 @@ class StyleConfig:
     line_spacing: float = 1.5
     space_before_pt: float = 0.0
     space_after_pt: float = 0.0
+    
+    # Code
+    code_language: str = "Auto"
 
 def _postbuild_estimate_pages(doc):
     """
@@ -603,7 +606,14 @@ def generate_report(
                 from pygments.styles import get_style_by_name
                 
                 try:
-                    lexer = guess_lexer(text)
+                    if style_config.code_language and style_config.code_language != "Auto":
+                        from pygments.lexers import get_lexer_by_name
+                        try:
+                            lexer = get_lexer_by_name(style_config.code_language.lower())
+                        except Exception:
+                            lexer = guess_lexer(text)
+                    else:
+                        lexer = guess_lexer(text)
                 except Exception:
                     from pygments.lexers import PythonLexer
                     lexer = PythonLexer()
@@ -637,6 +647,39 @@ def generate_report(
                 run.font.size = Pt(style_config.content_size_pt)
                 run.font.color.rgb = RGBColor(248, 248, 242)
 
+        # 9. TERMINAL OUTPUT (Tabular data, console logs)
+        elif itype == "terminal_output":
+            label_p = doc.add_paragraph()
+            label_run = label_p.add_run("Output:")
+            label_run.bold = True
+            label_run.font.name = style_config.content_font
+            label_run.font.size = Pt(style_config.content_size_pt)
+            label_p.paragraph_format.space_before = Pt(12)
+            label_p.paragraph_format.space_after = Pt(4)
+
+            # Insert code in a 1x1 table for a clean padded box (Terminal feel)
+            table = doc.add_table(rows=1, cols=1)
+            table.autofit = True
+            cell = table.cell(0, 0)
+            
+            tcPr = cell._element.get_or_add_tcPr()
+            shd = OxmlElement("w:shd")
+            shd.set(ns.qn("w:val"), "clear")
+            shd.set(ns.qn("w:color"), "auto")
+            shd.set(ns.qn("w:fill"), "F5F5F5") # Light gray background for terminal output
+            tcPr.append(shd)
+
+            p = cell.paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            p.paragraph_format.space_before = Pt(6)
+            p.paragraph_format.space_after = Pt(6)
+            p.paragraph_format.line_spacing = 1.0
+
+            run = p.add_run(text)
+            run.font.name = "Courier New"
+            run.font.size = Pt(style_config.content_size_pt)
+            run.font.color.rgb = RGBColor(0, 0, 0) # Black text
+            
             # Note: "Explanation:" label is intentionally omitted to prevent
             # empty heading artifacts when no further explanation follows the code.
             pass

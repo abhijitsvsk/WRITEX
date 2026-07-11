@@ -41,9 +41,11 @@ Rules:
    - paragraph (Body text)
    - reference (Bibliography items)
    - code (Programming code snippets)
+   - terminal_output (Raw tabular data, console logs, or execution output)
    - figure_caption (Captions starting with "Figure X:")
 4. If you see a list of references/bibliography at the end, mark each item as "reference".
 5. If you see code snippets (often in triple backticks), mark them as "code" and keep the formatting intact.
+6. If you see tabular data or raw execution output (like CSV dumps or terminal logs), mark it strictly as "terminal_output" and keep all original spacing/newlines.
 
 Return ONLY valid JSON in this format:
 

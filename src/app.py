@@ -40,7 +40,7 @@ from src.core.compiler import DocumentCompiler, REPORT_SCHEMA
 from src.validation.validator import DocumentValidator
 
 
-def run_formatting(text_content, api_key_val, style_name):
+def run_formatting(text_content, api_key_val, style_name, style_cfg):
     # Keep lightweight formatting for Tabs 1 & 2
     from src.ai.structurer import structure_text
 
@@ -55,7 +55,7 @@ def run_formatting(text_content, api_key_val, style_name):
             data = json.loads(json_match.group(0)) if json_match else []
 
             buf = io.BytesIO()
-            generate_report(data, buf, style_name=style_name)
+            generate_report(data, buf, style_name=style_name, style_config=style_cfg)
             st.download_button("Download", buf.getvalue(), "formatted.docx")
         except Exception as e:
             st.error(str(e))
@@ -110,6 +110,8 @@ with st.sidebar:
         adv_c_size = st.number_input("Content Size (pt)", value=preset.get("c_size", 12.0), step=1.0)
         adv_c_align = st.selectbox("Content Alignment", ["Left", "Center", "Right", "Justify"], index=["Left", "Center", "Right", "Justify"].index(preset.get("c_align", "Justify")))
         
+        adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")))
+        
         st.markdown("**Spacing**")
         adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25)
         adv_space_before = st.number_input("Space Before (pt)", value=preset.get("space_before", 0.0), step=1.0)
@@ -121,7 +123,8 @@ with st.sidebar:
                     "margin": adv_margin, "h_font": adv_h_font, "h_size": adv_h_size, 
                     "h_align": adv_h_align, "h_bold": adv_h_bold, "c_font": adv_c_font,
                     "c_size": adv_c_size, "c_align": adv_c_align, "spacing": adv_spacing,
-                    "space_before": adv_space_before, "space_after": adv_space_after
+                    "space_before": adv_space_before, "space_after": adv_space_after,
+                    "code_lang": adv_code_lang
                 }, pf)
             st.success("Preset Saved!")
 
@@ -138,7 +141,8 @@ with st.sidebar:
         content_alignment=align_map[adv_c_align],
         line_spacing=adv_spacing,
         space_before_pt=adv_space_before,
-        space_after_pt=adv_space_after
+        space_after_pt=adv_space_after,
+        code_language=adv_code_lang
     )
     
     st.markdown("---")
@@ -151,12 +155,22 @@ tab1, tab2, tab3 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Str
 with tab1:
     txt = st.text_area("Raw Text")
     if st.button("Format Text"):
-        run_formatting(txt, api_key, sel_style)
+        run_formatting(txt, api_key, sel_style, style_config)
 
 with tab2:
     upl = st.file_uploader("Upload Doc/Txt")
     if upl and st.button("Format File"):
-        run_formatting("File content...", api_key, sel_style)
+        if upl.name.endswith('.txt'):
+            file_txt = upl.getvalue().decode('utf-8')
+        elif upl.name.endswith('.pdf'):
+            import pypdf
+            reader = pypdf.PdfReader(upl)
+            file_txt = "\\n".join([p.extract_text() for p in reader.pages])
+        else:
+            from docx import Document
+            doc = Document(upl)
+            file_txt = "\\n".join([p.text for p in doc.paragraphs])
+        run_formatting(file_txt, api_key, sel_style, style_config)
 
 with tab3:
     st.header("Code to B.Tech Report")
