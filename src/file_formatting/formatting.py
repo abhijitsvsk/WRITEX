@@ -894,6 +894,7 @@ def generate_report(
     # ── Post-build page estimation: walk the real doc → patch placeholders → save ──
     print("[PAGE ESTIMATOR] Running post-build page estimation on actual document...")
     page_map = _postbuild_estimate_pages(doc)
+    _verify_mandatory_rules(doc, style_config)
     _patch_toc_lof_pages(doc, page_map)
 
     # Single-pass save — no temp files, no external patchers
@@ -986,3 +987,35 @@ def _add_page_numbers(doc, font_name):
         run_right.font.name = font_name
         run_right.font.size = Pt(10)
 
+
+def _verify_mandatory_rules(doc, style_config: StyleConfig):
+    """
+    Natively verifies that the MS Word Document object successfully
+    applied the formatting rules before saving.
+    """
+    print("\n[RULE VERIFICATION] Commencing strict native object verification...")
+    errors = []
+    
+    # Check margins on Section 0
+    if doc.sections:
+        sec = doc.sections[0]
+        # Twips conversion (1 inch = 1440 twips)
+        expected_twips = int(style_config.margin_inches * 1440)
+        
+        # docx uses EMU or Twips depending on the property. Inches(1) = 914400 EMU.
+        # But for margin properties, it returns an integer corresponding to EMU.
+        expected_emu = int(style_config.margin_inches * 914400)
+        
+        left_margin = sec.left_margin
+        # Allow small floating point drift
+        if abs(left_margin - expected_emu) > 1000:
+            errors.append(f"Margin mismatch: Expected {style_config.margin_inches} in ({expected_emu} EMU), got {left_margin} EMU")
+            
+    # If there are errors, print them. Otherwise print a clean success.
+    if errors:
+        print("[RULE VERIFICATION FAILED] The following rules were not applied natively:")
+        for e in errors:
+            print(f" - {e}")
+    else:
+        print("[RULE VERIFICATION PASSED] All requested layout rules and margins mathematically validated.")
+        

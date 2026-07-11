@@ -65,13 +65,14 @@ Quarter Profit 1 Q1 37 2 Q2 36
 lines = text.split("\n")
 structure = []
 in_code = False
+in_output = False
 code_lines = []
+output_lines = []
 
 for line in lines:
     line = line.strip()
     if not line:
         continue
-    
     if line == "CODE:":
         in_code = True
         structure.append({"type": "section_header", "text": "CODE"})
@@ -79,6 +80,7 @@ for line in lines:
         
     if line == "OUTPUT:":
         in_code = False
+        in_output = True
         if code_lines:
             structure.append({"type": "code_block", "text": "\n".join(code_lines)})
             code_lines = []
@@ -87,21 +89,21 @@ for line in lines:
         
     if in_code:
         code_lines.append(line)
+    elif in_output:
+        output_lines.append(line)
     elif line in ["Aim:", "Theory:"]:
         structure.append({"type": "section_header", "text": line.strip(":")})
     elif line.startswith("Experiment "):
         structure.append({"type": "chapter", "text": line})
     elif "Bar charts and Column charts" in line:
-        structure.append({"type": "paragraph", "text": line})
+        structure.append({"type": "section_header", "text": line})
     else:
-        # Use terminal_output for output block simulation
-        if structure and structure[-1].get("text") == "OUTPUT":
-             structure.append({"type": "terminal_output", "text": line})
-        else:
-             structure.append({"type": "paragraph", "text": line})
+        structure.append({"type": "paragraph", "text": line})
 
 if code_lines:
     structure.append({"type": "code_block", "text": "\n".join(code_lines)})
+if output_lines:
+    structure.append({"type": "terminal_output", "text": "\n".join(output_lines)})
 
 # Image injection (BOTTOM PLACEMENT)
 image1_path = r"C:\Users\jithu\.gemini\antigravity\brain\de43b68d-19ac-4236-ad3c-de557e73e03d\media__1783761098857.png"
@@ -124,11 +126,11 @@ config = StyleConfig(
     line_spacing=1.5,
     space_before_pt=0.0,
     space_after_pt=0.0,
-    code_language="R",
+    code_language="None",
     continuous_sections=True
 )
 
-output_path = "test_images_bottom_continuous.docx"
+output_path = "test_images_no_highlight_terminal_fix.docx"
 with open(output_path, "wb") as f:
     generate_report(structure, f, style_config=config)
     
