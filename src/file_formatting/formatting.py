@@ -437,17 +437,38 @@ def generate_report(
 
             p.paragraph_format.space_after = Pt(24)
 
+        # 1.5 HEADING (Level 1 non-chapter)
+        elif itype == "heading":
+            counters["sub"] = 0
+            counters["subsub"] = 0
+
+            p = doc.add_paragraph()
+            p.style = doc.styles["Heading 1"]
+            p.alignment = style_config.chapter_alignment
+
+            run = p.add_run(text.title())
+            run.bold = style_config.heading_bold
+            run.font.name = style_config.heading_font
+            run.font.size = Pt(style_config.heading_size_pt)
+            run.font.color.rgb = RGBColor(0, 0, 0)
+
+            p.paragraph_format.space_after = Pt(24)
+
         # 2. SUBHEADING (Level 2) - 1.1
         elif itype == "subheading":
             counters["sub"] += 1
             counters["subsub"] = 0
 
-            prefix = f"{counters['chapter']}.{counters['sub']}"
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 2"]
             p.alignment = style_config.chapter_alignment
 
-            run = p.add_run(f"{prefix} {text.title()}")
+            if counters['chapter'] > 0:
+                prefix = f"{counters['chapter']}.{counters['sub']} "
+                run = p.add_run(f"{prefix}{text.title()}")
+            else:
+                run = p.add_run(text.title())
+
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(max(10, style_config.heading_size_pt - 2))
@@ -460,12 +481,15 @@ def generate_report(
         elif itype == "subsubheading":
             counters["subsub"] += 1
 
-            prefix = f"{counters['chapter']}.{counters['sub']}.{counters['subsub']}"
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 3"]
             p.alignment = style_config.subheading_alignment
 
-            run = p.add_run(f"{prefix} {text.title()}")
+            if counters['chapter'] > 0:
+                prefix = f"{counters['chapter']}.{counters['sub']}.{counters['subsub']} "
+                run = p.add_run(f"{prefix}{text.title()}")
+            else:
+                run = p.add_run(text.title())
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(max(10, style_config.heading_size_pt - 4))
@@ -476,21 +500,17 @@ def generate_report(
 
         # 4. TITLE / SPLASH
         elif itype == "title":
-            p = doc.add_paragraph("Course Project Report On")
+            # NOTE: "Course Project Report On" was previously hardcoded here for ALL styles.
+            # It has been removed — it only belongs in the Academic Report pipeline (api_academic.py).
+            p = doc.add_paragraph(text)
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.paragraph_format.space_before = Pt(48)
-            p.runs[0].font.name = font_name
-            p.runs[0].font.size = Pt(14)
-            p.paragraph_format.space_after = Pt(24)
-
-            p2 = doc.add_paragraph(text)
-            p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = p2.runs[0]
+            run = p.runs[0]
             run.font.size = Pt(22)
             run.bold = True
             run.font.name = font_name
-            p2.paragraph_format.space_after = Pt(24)
-            p2.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.space_after = Pt(24)
+            p.paragraph_format.line_spacing = 1.0
 
         # 4a. TITLE PAGE BODY (Centered, Single Spaced)
         elif itype == "title_page_body":
@@ -581,7 +601,7 @@ def generate_report(
             doc.add_page_break()
 
         # 8. CODE BLOCKS (Styled with Monokai Dark by default)
-        elif itype == "code_block":
+        elif itype in ["code_block", "code"]:
 
             # Insert code in a 1x1 table for a clean padded box
             table = doc.add_table(rows=1, cols=1)

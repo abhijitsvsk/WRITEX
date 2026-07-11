@@ -17,7 +17,7 @@ from src.utils.github_import import download_github_repo
 router = APIRouter()
 
 @router.post("/api/format_academic_report")
-async def api_format_academic_report(
+def api_format_academic_report(
     api_key: str = Form(...),
     title: str = Form("My Project"),
     degree: str = Form("B.Tech Computer Science"),
@@ -66,7 +66,7 @@ async def api_format_academic_report(
     
     sa = StyleAnalyzer(api_key=api_key)
     if sample_rep:
-        sample_bytes = await sample_rep.read()
+        sample_bytes = sample_rep.file.read()
         sample_io = io.BytesIO(sample_bytes)
         ext = sample_rep.filename.split(".")[-1].lower()
         
@@ -108,15 +108,11 @@ async def api_format_academic_report(
     
     if github_url and not proj_zip:
         try:
-            active_zip_path = download_github_repo(github_url)
-            with open(active_zip_path, "rb") as f:
-                active_zip_io = io.BytesIO(f.read())
-            import os
-            os.remove(active_zip_path)
+            active_zip_io = download_github_repo(github_url)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to download GitHub repo: {str(e)}")
     else:
-        active_zip_io = io.BytesIO(await proj_zip.read())
+        active_zip_io = io.BytesIO(proj_zip.file.read())
 
     try:
         summary = analyzer.analyze_zip(active_zip_io)
@@ -130,7 +126,7 @@ async def api_format_academic_report(
     test_metrics_text = ""
     if test_metrics:
         try:
-            raw_metrics = (await test_metrics.read()).decode("utf-8", errors="ignore")
+            raw_metrics = (test_metrics.file.read()).decode("utf-8", errors="ignore")
             if test_metrics.filename.lower().endswith(".json"):
                 parsed = json.loads(raw_metrics)
                 test_metrics_text = json.dumps(parsed[:100] if isinstance(parsed, list) and len(parsed) > 100 else parsed, indent=2)

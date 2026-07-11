@@ -1,19 +1,19 @@
 import os
 import json
-from groq import Groq
+from .provider_client import create_ai_client
 from .utils import generate_with_retry
 
 
-def structure_text(raw_text, api_key=None, style_name="Standard", available_images=None):
+def structure_text(raw_text, api_key=None, style_name="Standard", available_images=None, provider="groq", model_name=None):
     if not api_key:
         api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
         raise ValueError(
-            "Groq API Key is missing. Please provide it or set GROQ_API_KEY environment variable."
+            "API Key is missing. Please provide it via the UI or set the GROQ_API_KEY environment variable."
         )
 
-    client = Groq(api_key=api_key)
+    client = create_ai_client(api_key, provider=provider, model_name=model_name)
 
     # Style-specific casing rules
     casing_instruction = "Follow standard capitalization rules."
@@ -45,17 +45,17 @@ Rules:
 3. Classify each block as: 
    - title (Document Title)
    - chapter (Level 1: e.g., "1. Introduction")
-   - heading (Level 1: if not using chapters)
-   - subheading (Level 2: e.g., "1.1 Background")
-   - subsubheading (Level 3: e.g., "1.1.1 History")
-   - paragraph (Body text)
+   - heading (Top-level sections like "Aim", "Theory", "Procedure", "Code", "Output", "Conclusion")
+   - subheading (Level 2 sub-sections within a heading)
+   - subsubheading (Level 3 sub-sections)
+   - paragraph (Standard body text)
    - reference (Bibliography items)
-   - code (Programming code snippets)
+   - code (Programming code snippets, scripts, or syntax blocks, even if not in backticks. MUST preserve exact formatting/newlines)
    - terminal_output (Raw tabular data, console logs, or execution output)
    - figure_caption (Captions starting with "Figure X:")
    - image_insertion (If inserting a provided image)
 4. If you see a list of references/bibliography at the end, mark each item as "reference".
-5. If you see code snippets (often in triple backticks), mark them as "code" and keep the formatting intact.
+5. If you see programming syntax (e.g. R, Python, C++), mark them as "code" and keep the formatting/newlines intact.
 6. If you see tabular data or raw execution output (like CSV dumps or terminal logs), mark it strictly as "terminal_output" and keep all original spacing/newlines.{image_instruction}
 
 Return ONLY valid JSON in this format:
@@ -72,35 +72,20 @@ Raw text:
 {raw_text}
 """
 
-    models_to_try = ["llama-3.3-70b-versatile", "llama3-70b-8192"]
-
-    last_error = None
-
-    # We still use the retry utility, but we pass the client as 'model'
-    # The utility now checks for .chat attribute which Groq client has
-
     try:
-        # Use valid JSON mode if possible, but Groq JSON mode requires explicit json_object
-        # For now we rely on the prompt instructions and text parsing or client enforced json
-        # Llama 3.1 is good at following format.
-
-        # Note: generate_with_retry handles the specific call structure
         response_text = generate_with_retry(client, prompt, max_retries=3)
 
         if not response_text:
             raise ValueError("Empty response from AI model.")
 
-        # Ensure we get just the JSON
         response_text = response_text.strip()
 
-        # Robust regex extraction for list
         import re
 
         match = re.search(r"\[.*\]", response_text, re.DOTALL)
         if match:
             response_text = match.group(0)
         else:
-            # Fallback to existing logic if regex fails (unlikely if list is present)
             if "```json" in response_text:
                 response_text = (
                     response_text.split("```json")[1].split("```")[0].strip()
@@ -111,4 +96,4 @@ Raw text:
         return response_text
 
     except Exception as e:
-        raise ValueError(f"Groq generation failed: {e}")
+        raise ValueError(f"AI generation failed: {e}")

@@ -1,316 +1,674 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, CSSProperties } from "react";
 
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+const C = {
+  bgBase:     "#09090b",
+  bgSurface:  "#0f0f12",
+  bgElevated: "#141418",
+  bgOverlay:  "#1a1a20",
+  bgSubtle:   "#222228",
+
+  borderFaint:  "rgba(255,255,255,0.05)",
+  borderSubtle: "rgba(255,255,255,0.08)",
+  borderDef:    "rgba(255,255,255,0.12)",
+  borderStr:    "rgba(255,255,255,0.20)",
+
+  accent:     "#6366f1",
+  accentHov:  "#818cf8",
+  accentDim:  "rgba(99,102,241,0.12)",
+  accentGlow: "rgba(99,102,241,0.3)",
+
+  textPri:  "#f4f4f5",
+  textSec:  "#a1a1aa",
+  textTer:  "#71717a",
+  textMuted:"#52525b",
+
+  success: "#22c55e",
+  successDim: "rgba(34,197,94,0.12)",
+  error:   "#ef4444",
+  errorDim: "rgba(239,68,68,0.1)",
+  warn:    "#f59e0b",
+};
+
+// ─── Micro-helpers ────────────────────────────────────────────────────────────
+const Icon = ({ name, size = 16, color, style }: { name: string; size?: number; color?: string; style?: CSSProperties }) => (
+  <span
+    className="material-symbols-outlined"
+    style={{ fontSize: size, color: color ?? "inherit", lineHeight: 1, display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
+  >
+    {name}
+  </span>
+);
+
+const Label = ({ children }: { children: React.ReactNode }) => (
+  <span style={{ fontSize: 10.5, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.09em", fontFamily: "'JetBrains Mono', monospace", display: "block", marginBottom: 6 }}>
+    {children}
+  </span>
+);
+
+const Input = ({
+  value, onChange, placeholder, type = "text", mono = false, style,
+}: {
+  value: string | number;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  mono?: boolean;
+  style?: CSSProperties;
+}) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%",
+        background: C.bgOverlay,
+        border: `1px solid ${focused ? C.accent : C.borderDef}`,
+        borderRadius: 8,
+        padding: "8px 12px",
+        fontSize: mono ? 12 : 13,
+        fontFamily: mono ? "'JetBrains Mono', monospace" : "'Inter', sans-serif",
+        color: C.textPri,
+        outline: "none",
+        boxShadow: focused ? `0 0 0 3px ${C.accentDim}` : "none",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+        boxSizing: "border-box",
+        ...style,
+      }}
+    />
+  );
+};
+
+const Select = ({ value, onChange, options, style }: { value: string; onChange: (v: string) => void; options: string[]; style?: CSSProperties }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%",
+        background: C.bgOverlay,
+        border: `1px solid ${focused ? C.accent : C.borderDef}`,
+        borderRadius: 8,
+        padding: "8px 10px",
+        fontSize: 12,
+        fontFamily: "'Inter', sans-serif",
+        color: C.textPri,
+        outline: "none",
+        boxShadow: focused ? `0 0 0 3px ${C.accentDim}` : "none",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+        cursor: "pointer",
+        appearance: "none" as const,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "right 10px center",
+        paddingRight: 28,
+        ...style,
+      }}
+    >
+      {options.map(o => <option key={o} value={o} style={{ background: C.bgOverlay }}>{o}</option>)}
+    </select>
+  );
+};
+
+const SectionCard = ({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) => (
+  <div style={{ background: C.bgElevated, border: `1px solid ${C.borderSubtle}`, borderRadius: 12, overflow: "hidden" }}>
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "10px 16px", borderBottom: `1px solid ${C.borderFaint}`,
+      background: "rgba(255,255,255,0.015)",
+    }}>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.09em", fontFamily: "'JetBrains Mono', monospace" }}>{title}</span>
+      {right}
+    </div>
+    <div style={{ padding: 16 }}>{children}</div>
+  </div>
+);
+
+interface Conflict {
+  parameter_key: string;
+  parameter_label: string;
+  reference_value: string;
+  request_value: string;
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"text" | "upload" | "academic">("text");
+  const [activeTab, setActiveTab] = useState<"text"|"upload"|"academic">("text");
   const [apiKey, setApiKey] = useState("");
+  const [provider, setProvider] = useState<"groq"|"deepseek">("groq");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [images, setImages] = useState<FileList | null>(null);
-  const [imagePlacement, setImagePlacement] = useState("Let AI Decide");
-  
-  const [margin, setMargin] = useState(1.0);
+  const [file, setFile] = useState<File|null>(null);
   const [hFont, setHFont] = useState("Times New Roman");
-  const [hSize, setHSize] = useState(14);
-  const [chapAlign, setChapAlign] = useState("Center");
-  const [subhAlign, setSubhAlign] = useState("Left");
-  const [hBold, setHBold] = useState(true);
-  
-  const [cFont, setCFont] = useState("Times New Roman");
-  const [cSize, setCSize] = useState(12);
+  const [hSize, setHSize] = useState("14");
+  const [spacing, setSpacing] = useState("1.5");
+  const [margin, setMargin] = useState("25");
   const [cAlign, setCAlign] = useState("Justify");
   const [codeLang, setCodeLang] = useState("Auto");
-  
-  const [spacing, setSpacing] = useState(1.5);
-  const [spaceBefore, setSpaceBefore] = useState(0);
-  const [spaceAfter, setSpaceAfter] = useState(0);
-  const [continuous, setContinuous] = useState(false);
 
-  const [projZip, setProjZip] = useState<File | null>(null);
+  const [projZip, setProjZip] = useState<File|null>(null);
   const [githubUrl, setGithubUrl] = useState("");
-  const [sampleRep, setSampleRep] = useState<File | null>(null);
-  const [rewriteMode, setRewriteMode] = useState(false);
-  const [testMetrics, setTestMetrics] = useState<File | null>(null);
   const [projTitle, setProjTitle] = useState("");
   const [degree, setDegree] = useState("");
   const [university, setUniversity] = useState("");
-  const [department, setDepartment] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
+  const [dept, setDept] = useState("");
+  const [acYear, setAcYear] = useState("");
   const [principal, setPrincipal] = useState("");
-  const [hod, setHod] = useState("");
   const [guide, setGuide] = useState("");
-  const [guideDesignation, setGuideDesignation] = useState("");
-  const [hodDesignation, setHodDesignation] = useState("");
-  const [teamMembersString, setTeamMembersString] = useState("");
-  const [specialRequestText, setSpecialRequestText] = useState("");
-  
-  const [conflicts, setConflicts] = useState<any[]>([]);
-  const [showConflictModal, setShowConflictModal] = useState(false);
-  const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, any>>({});
+  const [guideDesig, setGuideDesig] = useState("");
+  const [hod, setHod] = useState("");
+  const [hodDesig, setHodDesig] = useState("");
+  const [teamMembers, setTeamMembers] = useState<string[]>([""]);
 
-  const handleGenerate = async (isRetryWithResolutions = false) => {
-    if (!apiKey) { setError("Please provide an API Key."); return; }
-    setError("");
-    setLoading(true);
-    
-    const formData = new FormData();
-    formData.append("api_key", apiKey);
-    
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [showConflict, setShowConflict] = useState(false);
+  const [resolved, setResolved] = useState<Record<string, string>>({});
+
+  const [apiFocused, setApiFocused] = useState(false);
+
+  const handleGenerate = async (isRetry = false) => {
+    if (!apiKey.trim()) { setError("Enter your API key in the top bar."); return; }
+    setError(""); setLoading(true);
+    const fd = new FormData();
+    fd.append("api_key", apiKey);
+    fd.append("provider", provider);
     let endpoint = "";
 
-    if (activeTab === "text" || activeTab === "upload") {
-      endpoint = activeTab === "text" ? "http://localhost:8000/api/format_text" : "http://localhost:8000/api/format_file";
-      formData.append("image_placement", imagePlacement);
-      formData.append("style_name", "Academic");
-      
-      const styleConfig = { margin_inches: margin, heading_font: hFont, heading_size_pt: hSize, heading_bold: hBold, chapter_alignment: chapAlign, subheading_alignment: subhAlign, content_font: cFont, content_size_pt: cSize, content_alignment: cAlign, line_spacing: spacing, space_before_pt: spaceBefore, space_after_pt: spaceAfter, code_language: codeLang, continuous_sections: continuous };
-      formData.append("style_config", JSON.stringify(styleConfig));
-      
-      if (images) { for (let i = 0; i < images.length; i++) formData.append("images", images[i]); }
+    if (activeTab !== "academic") {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      endpoint = activeTab === "text" ? `${baseUrl}/api/format_text` : `${baseUrl}/api/format_file`;
+      fd.append("style_name", "Academic");
+      fd.append("style_config", JSON.stringify({
+        margin_inches: +margin / 25.4, heading_font: hFont, heading_size_pt: +hSize,
+        heading_bold: true, chapter_alignment: cAlign, subheading_alignment: cAlign,
+        content_font: "Times New Roman", content_size_pt: 12, content_alignment: cAlign,
+        line_spacing: +spacing, space_before_pt: 0, space_after_pt: 0,
+        code_language: codeLang, continuous_sections: false,
+      }));
       if (activeTab === "text") {
-        if (!text) { setError("Please provide some raw text."); setLoading(false); return; }
-        formData.append("text", text);
+        if (!text.trim()) { setError("Paste some text first."); setLoading(false); return; }
+        fd.append("text", text);
       } else {
-        if (!file) { setError("Please upload a document."); setLoading(false); return; }
-        formData.append("file", file);
+        if (!file) { setError("Upload a document first."); setLoading(false); return; }
+        if (file.size > 50 * 1024 * 1024) { setError("File is too large (max 50MB)."); setLoading(false); return; }
+        fd.append("file", file);
       }
-    } else if (activeTab === "academic") {
-      endpoint = "http://localhost:8000/api/format_academic_report";
-      if (!projZip && !githubUrl) { setError("Please provide a Project ZIP or GitHub URL."); setLoading(false); return; }
-      if (projZip) formData.append("proj_zip", projZip);
-      formData.append("github_url", githubUrl);
-      if (sampleRep) formData.append("sample_rep", sampleRep);
-      formData.append("rewrite_mode", rewriteMode ? "true" : "false");
-      if (testMetrics) formData.append("test_metrics", testMetrics);
-      formData.append("title", projTitle);
-      formData.append("degree", degree);
-      formData.append("university", university);
-      formData.append("department", department);
-      formData.append("academic_year", academicYear);
-      formData.append("principal", principal);
-      formData.append("hod", hod);
-      formData.append("guide", guide);
-      formData.append("guide_designation", guideDesignation);
-      formData.append("hod_designation", hodDesignation);
-      const teamArr = teamMembersString.split(",").map(n => n.trim()).filter(Boolean);
-      formData.append("team_names", teamArr.join(","));
-      formData.append("special_request_text", specialRequestText);
-      formData.append("resolved_conflicts", JSON.stringify(resolvedConflicts));
+    } else {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      endpoint = `${baseUrl}/api/format_academic_report`;
+      if (!projZip && !githubUrl.trim()) { setError("Provide a ZIP or GitHub URL."); setLoading(false); return; }
+      if (projZip && projZip.size > 50 * 1024 * 1024) { setError("ZIP is too large (max 50MB)."); setLoading(false); return; }
+      if (projZip) fd.append("proj_zip", projZip);
+      fd.append("github_url", githubUrl); fd.append("rewrite_mode", "false");
+      fd.append("title", projTitle); fd.append("degree", degree);
+      fd.append("university", university); fd.append("department", dept);
+      fd.append("academic_year", acYear); fd.append("principal", principal);
+      fd.append("hod", hod); fd.append("guide", guide);
+      fd.append("guide_designation", guideDesig); fd.append("hod_designation", hodDesig);
+      fd.append("team_names", teamMembers.filter(n => n.trim()).join(","));
+      fd.append("resolved_conflicts", JSON.stringify(resolved));
     }
-    
+
     try {
-      const response = await fetch(endpoint, { method: "POST", body: formData });
-      if (response.status === 409) {
-        const data = await response.json();
-        setConflicts(data.conflicts);
-        setShowConflictModal(true);
-        setLoading(false);
-        return;
+      const res = await fetch(endpoint, { method: "POST", body: fd });
+      if (res.status === 409) {
+        const d = await res.json(); setConflicts(d.conflicts); setShowConflict(true); setLoading(false); return;
       }
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || "Generation failed.");
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const e = await res.json();
+          throw new Error(e.detail || "Generation failed.");
+        } else {
+          throw new Error(`The server took too long to respond or threw a fatal error (HTTP ${res.status}).`);
+        }
       }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url;
       a.download = activeTab === "academic" ? "Academic_Report.docx" : "formatted.docx";
-      a.click();
-      window.URL.revokeObjectURL(url);
-      if (isRetryWithResolutions) { setShowConflictModal(false); setConflicts([]); setResolvedConflicts({}); }
-    } catch (err: any) { setError(err.message); } finally { setLoading(false); }
+      a.click(); URL.revokeObjectURL(url);
+      if (isRetry) { setShowConflict(false); setConflicts([]); setResolved({}); }
+    } catch(e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally { setLoading(false); }
   };
 
-  const resolveConflict = (key: string, value: any) => { setResolvedConflicts(prev => ({ ...prev, [key]: value })); };
+  const tabs = [
+    { id: "text" as const, label: "Paste Text", icon: "content_paste" },
+    { id: "upload" as const, label: "Upload Document", icon: "upload_file" },
+    { id: "academic" as const, label: "Academic Report", icon: "school" },
+  ];
 
   return (
-    <div className="min-h-screen text-on-surface bg-background relative overflow-hidden">
-        {/* Atmospheric Background Components */}
-        <div className="blob bg-primary top-[-10%] left-[-10%]"></div>
-        <div class="blob bg-tertiary bottom-[-10%] right-[-10%] opacity-20"></div>
-        <div class="blob bg-secondary top-[40%] right-[10%] opacity-20"></div>
+    <div style={{ minHeight: "100vh", background: C.bgBase, fontFamily: "'Inter', -apple-system, sans-serif" }}>
 
-        {/* Navigation Shell */}
-        <nav className="fixed top-0 w-full z-50 bg-surface/30 backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(79,70,229,0.15)]">
-            <div className="flex justify-between items-center px-8 md:px-16 py-4 max-w-7xl mx-auto">
-                <div className="flex items-center gap-4">
-                    <span className="text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">WriteX</span>
+      {/* ─── NAV ─── */}
+      <nav style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+        height: 52, display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 24px",
+        background: "rgba(9,9,11,0.8)",
+        backdropFilter: "blur(20px)",
+        borderBottom: `1px solid ${C.borderFaint}`,
+      }}>
+        {/* Left: Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span style={{
+            fontSize: 17, fontWeight: 800, letterSpacing: "-0.6px",
+            background: "linear-gradient(135deg, #a5b4fc 0%, #818cf8 50%, #c4b5fd 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          }}>WriteX</span>
+          <span style={{ width: 1, height: 18, background: C.borderDef }} />
+          <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 500 }}>Academic AI Writer</span>
+        </div>
+
+        {/* Right: Provider toggle + API Key + Account */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+          {/* Provider toggle pill */}
+          <div style={{
+            display: "flex",
+            background: C.bgOverlay,
+            border: `1px solid ${C.borderDef}`,
+            borderRadius: 9,
+            overflow: "hidden",
+            height: 34,
+          }}>
+            {(["groq", "deepseek"] as const).map((p) => {
+              const active = provider === p;
+              const labels: Record<string, string> = { groq: "Groq", deepseek: "DeepSeek" };
+              const icons:  Record<string, string> = { groq: "bolt", deepseek: "psychology" };
+              return (
+                <button
+                  key={p}
+                  onClick={() => setProvider(p)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "0 14px", height: "100%",
+                    background: active ? C.accentDim : "transparent",
+                    border: "none",
+                    borderRight: p === "groq" ? `1px solid ${C.borderDef}` : "none",
+                    color: active ? C.accent : C.textMuted,
+                    fontSize: 12, fontWeight: active ? 600 : 500,
+                    cursor: "pointer",
+                    transition: "background 0.15s, color 0.15s",
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                >
+                  <Icon name={icons[p]} size={13} color={active ? C.accent : C.textMuted} />
+                  {labels[p]}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* API Key input */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: C.bgElevated,
+            border: `1px solid ${apiFocused ? C.accent : C.borderDef}`,
+            borderRadius: 9,
+            padding: "0 12px", height: 34,
+            boxShadow: apiFocused ? `0 0 0 3px ${C.accentDim}` : "none",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+          }}>
+            <Icon name="key" size={14} color={C.textMuted} />
+            <input
+              type="password"
+              placeholder={provider === "groq" ? "gsk_…" : "sk-…"}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              onFocus={() => setApiFocused(true)}
+              onBlur={() => setApiFocused(false)}
+              style={{
+                background: "none", border: "none", outline: "none",
+                color: C.textPri, fontSize: 12,
+                fontFamily: "'JetBrains Mono', monospace",
+                width: apiFocused ? 200 : 150,
+                transition: "width 0.2s",
+              }}
+            />
+          </div>
+
+          <button style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "transparent", border: `1px solid ${C.borderDef}`,
+            borderRadius: 8, padding: "0 12px", height: 34, color: C.textSec,
+            fontSize: 12, fontWeight: 500, cursor: "pointer",
+          }}>
+            <Icon name="account_circle" size={14} />
+            Account
+          </button>
+        </div>
+      </nav>
+
+      {/* ─── CONTENT ─── */}
+      <main style={{ paddingTop: 76, paddingBottom: 56, padding: "76px 24px 56px", maxWidth: 1180, margin: "0 auto" }}>
+
+        {/* Page Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: "-0.5px", color: C.textPri }}>Researcher Workbench</h1>
+            <p style={{ margin: "5px 0 0", fontSize: 13, color: C.textTer }}>Format and generate academic documents with AI precision.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px",
+              background: C.successDim, border: "1px solid rgba(34,197,94,0.2)",
+              borderRadius: 7, fontSize: 11, fontWeight: 600,
+              color: C.success, fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.success, boxShadow: `0 0 6px ${C.success}`, display: "inline-block" }} />
+              READY
+            </span>
+            <span style={{
+              display: "inline-flex", padding: "4px 10px",
+              background: C.bgElevated, border: `1px solid ${C.borderSubtle}`,
+              borderRadius: 7, fontSize: 11, color: C.textMuted,
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>v2.1</span>
+          </div>
+        </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            background: C.errorDim, border: "1px solid rgba(239,68,68,0.2)",
+            borderRadius: 9, padding: "10px 14px",
+            color: "#fca5a5", fontSize: 13, marginBottom: 16,
+          }}>
+            <Icon name="error" size={16} color="#ef4444" />
+            {error}
+          </div>
+        )}
+
+        {/* ─── MAIN CARD ─── */}
+        <div style={{
+          background: C.bgSurface,
+          border: `1px solid ${C.borderSubtle}`,
+          borderRadius: 16,
+          overflow: "hidden",
+          boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 20px 60px rgba(0,0,0,0.5)",
+        }}>
+
+          {/* Tab bar */}
+          <div style={{
+            display: "flex", alignItems: "center",
+            background: C.bgElevated,
+            borderBottom: `1px solid ${C.borderFaint}`,
+            padding: "0 8px",
+            overflowX: "auto",
+          }}>
+            {tabs.map(t => {
+              const active = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 7,
+                    padding: "12px 16px",
+                    background: "none", border: "none",
+                    borderBottom: `2px solid ${active ? C.accent : "transparent"}`,
+                    color: active ? C.textPri : C.textMuted,
+                    fontSize: 12.5, fontWeight: active ? 600 : 500,
+                    cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
+                    whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif",
+                  }}
+                >
+                  <Icon name={t.icon} size={15} color={active ? C.accent : C.textMuted} />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: 24 }}>
+
+            {/* ── PASTE TEXT ── */}
+            {activeTab === "text" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <Label>Source Input</Label>
+                    <span style={{ fontSize: 11, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {text.length.toLocaleString()} chars
+                    </span>
+                  </div>
+                  <TextAreaInput value={text} onChange={setText} placeholder={"// Paste your research notes, raw data,\n// or academic draft here for AI synthesis…"} />
                 </div>
-                <div className="hidden md:flex gap-8 items-center">
-                   <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="API Key (Groq/DeepSeek)" className="bg-white/5 border border-white/10 rounded-lg px-4 py-1.5 text-sm outline-none focus:border-primary w-64" />
-                </div>
-            </div>
-        </nav>
+                <AdvancedLayout {...{hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,cAlign,setCAlign,codeLang,setCodeLang}} />
+                <GenerateButton loading={loading} label="Generate Document" onClick={() => handleGenerate()} />
+              </div>
+            )}
 
-        {/* Main Content Area */}
-        <main className="pt-32 pb-16 px-4 md:px-0">
-            <div className="max-w-4xl mx-auto">
-                
-                {error && <div className="mb-4 p-4 rounded-lg bg-error-container text-on-error-container text-sm text-center border border-error/50 shadow-lg">{error}</div>}
+            {/* ── UPLOAD ── */}
+            {activeTab === "upload" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <Dropzone file={file} onFile={setFile} accept=".txt,.pdf,.docx" label="Drop your document (PDF, DOCX, TXT)" />
+                <AdvancedLayout {...{hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,cAlign,setCAlign,codeLang,setCodeLang}} />
+                <GenerateButton loading={loading} label="Format Document" onClick={() => handleGenerate()} />
+              </div>
+            )}
 
-                {/* Central Dashboard Card */}
-                <div className="glass-card glass-highlight rounded-xl p-8 glow-primary relative overflow-hidden">
-                    {/* Card Header Tabs */}
-                    <div className="flex border-b border-white/10 mb-8 overflow-x-auto scrollbar-hide">
-                        <button onClick={() => setActiveTab('text')} className={`px-6 py-4 text-lg transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'text' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}>
-                            📝 Paste Text
-                        </button>
-                        <button onClick={() => setActiveTab('upload')} className={`px-6 py-4 text-lg transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'upload' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}>
-                            📂 Upload Document
-                        </button>
-                        <button onClick={() => setActiveTab('academic')} className={`px-6 py-4 text-lg transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'academic' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}>
-                            🎓 Academic Report
-                        </button>
+            {/* ── ACADEMIC REPORT ── */}
+            {activeTab === "academic" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
+
+                {/* Left */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <SectionCard title="Repository & Project Data">
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <Label>Project Title</Label>
+                        <Input value={projTitle} onChange={setProjTitle} placeholder="e.g., Federated Learning for Edge Computing" />
+                      </div>
+                      <div>
+                        <Label>Source Code (ZIP)</Label>
+                        <SmallDropzone file={projZip} onFile={setProjZip} accept=".zip" icon="folder_zip" label="Drop ZIP or browse…" />
+                      </div>
+                      <div>
+                        <Label>GitHub Repository URL</Label>
+                        <div style={{ position: "relative" }}>
+                          <Icon name="link" size={14} color={C.textMuted} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                          <Input value={githubUrl} onChange={setGithubUrl} placeholder="https://github.com/…" mono style={{ paddingLeft: 30 }} />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>University / Institution</Label>
+                        <Input value={university} onChange={setUniversity} placeholder="e.g., Anna University" />
+                      </div>
+                      <div>
+                        <Label>Degree / Programme</Label>
+                        <Input value={degree} onChange={setDegree} placeholder="e.g., B.Tech Computer Science" />
+                      </div>
+                      <div>
+                        <Label>Department</Label>
+                        <Input value={dept} onChange={setDept} placeholder="e.g., Dept. of CSE" />
+                      </div>
+                      <div>
+                        <Label>Academic Year</Label>
+                        <Input value={acYear} onChange={setAcYear} placeholder="e.g., 2024–2025" />
+                      </div>
+                      <div>
+                        <Label>Project Guide / Supervisor</Label>
+                        <Input value={guide} onChange={setGuide} placeholder="Dr. John Doe" />
+                      </div>
+                      <div>
+                        <Label>Guide Designation</Label>
+                        <Input value={guideDesig} onChange={setGuideDesig} placeholder="Assistant Professor" />
+                      </div>
+                      <div>
+                        <Label>Head of Department (HOD)</Label>
+                        <Input value={hod} onChange={setHod} placeholder="Prof. Jane Smith" />
+                      </div>
+                      <div>
+                        <Label>HOD Designation</Label>
+                        <Input value={hodDesig} onChange={setHodDesig} placeholder="Professor & Head" />
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <Label>Principal</Label>
+                        <Input value={principal} onChange={setPrincipal} placeholder="Dr. Alan Turing" />
+                      </div>
                     </div>
+                  </SectionCard>
 
-                    {/* Tab Content: Paste Text */}
-                    {activeTab === 'text' && (
-                        <div className="group relative">
-                            <textarea value={text} onChange={e=>setText(e.target.value)} className="w-full h-80 bg-white/5 border border-white/10 rounded-lg p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all resize-none shadow-inner" placeholder="Paste your research notes, data, or draft here..."></textarea>
-                            <div className="absolute inset-0 rounded-lg pointer-events-none group-focus-within:border-primary/30 border border-transparent transition-colors"></div>
-                        </div>
-                    )}
-
-                    {/* Tab Content: Upload */}
-                    {activeTab === 'upload' && (
-                        <div className="w-full h-80 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center gap-4 hover:border-primary/50 transition-all cursor-pointer bg-white/[0.02] relative">
-                            <input type="file" accept=".txt,.pdf,.docx" onChange={e=>setFile(e.target.files?.[0]||null)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-4xl text-primary">📄</span>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-xl text-on-surface">{file ? file.name : "Drag and drop your document"}</p>
-                                <p className="text-md text-on-surface-variant mt-1">PDF, DOCX, or TXT</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Tab Content: Academic Report */}
-                    {activeTab === 'academic' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">Project ZIP</span>
-                                    <input type="file" accept=".zip" onChange={e=>setProjZip(e.target.files?.[0]||null)} className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-on-surface focus:border-primary outline-none" />
-                                </label>
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">GitHub URL</span>
-                                    <input type="text" value={githubUrl} onChange={e=>setGithubUrl(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="https://github.com/..." />
-                                </label>
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">Team Members</span>
-                                    <input type="text" value={teamMembersString} onChange={e=>setTeamMembersString(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="John Doe, Jane Smith" />
-                                </label>
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">Project Title</span>
-                                    <input type="text" value={projTitle} onChange={e=>setProjTitle(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="Autonomous Navigation Systems" />
-                                </label>
-                            </div>
-                            <div className="space-y-4">
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">Degree & University</span>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={degree} onChange={e=>setDegree(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="B.Tech" />
-                                        <input type="text" value={university} onChange={e=>setUniversity(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="MIT" />
-                                    </div>
-                                </label>
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">Guide & HOD</span>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={guide} onChange={e=>setGuide(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="Dr. Alan" />
-                                        <input type="text" value={hod} onChange={e=>setHod(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary outline-none" placeholder="HOD Name" />
-                                    </div>
-                                </label>
-                                <label className="block">
-                                    <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-2 block font-medium">Special Requests</span>
-                                    <textarea value={specialRequestText} onChange={e=>setSpecialRequestText(e.target.value)} className="w-full h-28 bg-white/5 border border-white/10 rounded-lg p-4 text-on-surface focus:border-primary outline-none resize-none" placeholder="Add citations, custom styles, or specific focus areas..."></textarea>
-                                </label>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Shared Controls Section */}
-                    <div className="mt-8 pt-8 border-t border-white/10 space-y-6">
-                        <div className="flex flex-col md:flex-row gap-6 items-end">
-                            <div className="flex-1 w-full relative">
-                                <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-3 block font-medium">Attach Media</span>
-                                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                                    <div className="w-24 h-24 rounded-lg glass-card flex-shrink-0 flex items-center justify-center group cursor-pointer hover:bg-white/10 transition-colors relative">
-                                        <input type="file" multiple accept="image/*" onChange={e=>setImages(e.target.files)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                        <span className="text-on-surface-variant text-2xl">📸</span>
-                                    </div>
-                                    {images && Array.from(images).map((img, idx) => (
-                                       <div key={idx} className="w-24 h-24 rounded-lg bg-surface flex-shrink-0 border border-primary/50 flex items-center justify-center text-xs text-center p-2 text-primary break-all">{img.name}</div> 
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="w-full md:w-64">
-                                <span className="text-xs text-on-surface-variant uppercase tracking-wider mb-3 block font-medium">Placement</span>
-                                <select value={imagePlacement} onChange={e=>setImagePlacement(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-on-surface focus:border-primary outline-none appearance-none cursor-pointer">
-                                    <option className="bg-surface">Let AI Decide</option>
-                                    <option className="bg-surface">Top</option>
-                                    <option className="bg-surface">Bottom</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Generate Button */}
-                        <div className="pt-8">
-                            <button onClick={()=>handleGenerate()} disabled={loading} className={`w-full py-6 rounded-full bg-gradient-to-r from-primary-container to-secondary-container text-white text-2xl font-bold flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-all ${loading ? 'opacity-70 cursor-wait' : 'hover:shadow-[0_0_50px_rgba(79,70,229,0.6)] hover:scale-[1.02] active:scale-[0.98]'}`}>
-                                <span>✨</span> {loading ? 'Processing Document...' : 'Generate Document'}
-                            </button>
-                        </div>
+                  <SectionCard
+                    title="Team Members"
+                    right={
+                      <button
+                        onClick={() => setTeamMembers(m => [...m, ""])}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          background: "transparent", border: `1px solid ${C.borderDef}`,
+                          borderRadius: 7, padding: "4px 10px",
+                          color: C.textSec, fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+                        }}
+                      >
+                        <Icon name="add" size={13} color={C.textSec} />
+                        Add Member
+                      </button>
+                    }
+                  >
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      {teamMembers.map((name, i) => (
+                        <MemberRow
+                          key={i}
+                          value={name}
+                          index={i}
+                          onChange={v => setTeamMembers(m => m.map((x, j) => j === i ? v : x))}
+                          onRemove={() => setTeamMembers(m => m.filter((_, j) => j !== i))}
+                          canRemove={teamMembers.length > 1}
+                        />
+                      ))}
                     </div>
+                  </SectionCard>
                 </div>
 
-                {/* Footer Section */}
-                <footer className="mt-16 flex flex-col md:flex-row justify-between items-center px-4 gap-4 opacity-60">
-                    <p className="text-sm text-on-surface-variant">© 2026 WriteX Academic Engine. All rights reserved.</p>
-                </footer>
+                {/* Right */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <SectionCard title="Generate">
+                    <GenerateButton loading={loading} label="Generate Academic Report" onClick={() => handleGenerate()} />
+                    <p style={{ marginTop: 10, fontSize: 11, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
+                      Est. 2–4 min. The AI auto-generates chapters,<br />UML diagrams, and code analysis.
+                    </p>
+                  </SectionCard>
+
+                  <SectionCard title="Output Includes">
+                    {[
+                      ["description", "Abstract & Introduction"],
+                      ["account_tree", "System Architecture"],
+                      ["code", "Code Analysis (Ch. 4)"],
+                      ["bar_chart", "Test Results & Metrics"],
+                      ["format_quote", "References & Citations"],
+                    ].map(([icon, label]) => (
+                      <div key={label} style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 0", borderBottom: `1px solid ${C.borderFaint}`,
+                        fontSize: 12.5, color: C.textSec,
+                      }}>
+                        <Icon name={icon} size={14} color={C.accent} />
+                        {label}
+                      </div>
+                    ))}
+                  </SectionCard>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p style={{ textAlign: "center", marginTop: 32, fontSize: 11, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>
+          © 2026 WriteX Academic Engine · BYOK · $0 Infrastructure
+        </p>
+      </main>
+
+      {/* ─── CONFLICT MODAL ─── */}
+      {showConflict && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+          backdropFilter: "blur(10px)", zIndex: 100,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div style={{
+            background: C.bgSurface, border: `1px solid ${C.borderDef}`,
+            borderRadius: 18, padding: 28, maxWidth: 580, width: "100%",
+            maxHeight: "85vh", overflowY: "auto",
+            boxShadow: `0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.15)`,
+          }}>
+            <div style={{ display: "flex", gap: 14, marginBottom: 20 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Icon name="warning" size={18} color={C.warn} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.textPri }}>Style Conflict Detected</h2>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textSec }}>
+                  Your special requests conflict with the reference file. Choose which to apply for each.
+                </p>
+              </div>
             </div>
-        </main>
 
-        {/* Conflict Resolution Modal */}
-        {showConflictModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="glass-card rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto glow-primary border-primary/30">
-            <h2 className="text-3xl font-bold text-error flex items-center gap-3 mb-2">
-              ⚠️ Style Conflict Detected
-            </h2>
-            <p className="text-on-surface-variant text-md mb-8">
-              Your "Special Requests" clash with the formatting rules found in your uploaded Inspiration File. Please select which rule to follow.
-            </p>
-
-            <div className="space-y-6">
-              {conflicts.map((c, i) => {
-                const isResolved = resolvedConflicts[c.parameter_key] !== undefined;
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {conflicts.map((c) => {
+                const res = resolved[c.parameter_key];
                 return (
-                  <div key={i} className={`p-5 rounded-xl border ${isResolved ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5'}`}>
-                    <h3 className="font-bold text-lg text-on-surface mb-4">{c.parameter_label}</h3>
-                    
-                    {!isResolved ? (
-                      <div className="space-y-3">
-                        <button onClick={() => resolveConflict(c.parameter_key, c.reference_value)} className="w-full text-left p-4 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/20 transition-all">
-                          <span className="block text-xs text-on-surface-variant uppercase tracking-wider mb-1 font-bold">Follow Reference File</span>
-                          <span className="text-on-surface text-lg">{c.reference_value}</span>
-                        </button>
-                        <button onClick={() => resolveConflict(c.parameter_key, c.request_value)} className="w-full text-left p-4 rounded-lg bg-error-container/20 hover:bg-error-container/40 border border-transparent hover:border-error/50 transition-all">
-                          <span className="block text-xs text-error uppercase tracking-wider mb-1 font-bold">Follow Special Request</span>
-                          <span className="text-error text-lg">{c.request_value}</span>
-                        </button>
+                  <div key={c.parameter_key} style={{
+                    background: res ? "rgba(99,102,241,0.06)" : C.bgElevated,
+                    border: `1px solid ${res ? "rgba(99,102,241,0.2)" : C.borderSubtle}`,
+                    borderRadius: 10, padding: 14,
+                  }}>
+                    <Label>{c.parameter_label}</Label>
+                    {res === undefined ? (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {[["Reference File", c.reference_value, false], ["Special Request", c.request_value, true]].map(([lab, val, isDanger]) => (
+                          <button
+                            key={String(lab)}
+                            onClick={() => setResolved(prev => ({ ...prev, [c.parameter_key]: String(val) }))}
+                            style={{
+                              background: isDanger ? "rgba(239,68,68,0.06)" : C.bgOverlay,
+                              border: `1px solid ${isDanger ? "rgba(239,68,68,0.2)" : C.borderDef}`,
+                              borderRadius: 9, padding: "10px 12px",
+                              cursor: "pointer", textAlign: "left", transition: "border-color 0.15s",
+                            }}
+                          >
+                            <span style={{ fontSize: 10, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5, fontFamily: "'JetBrains Mono', monospace" }}>{String(lab)}</span>
+                            <span style={{ fontSize: 13, color: C.textPri, fontWeight: 500 }}>{String(val)}</span>
+                          </button>
+                        ))}
                       </div>
                     ) : (
-                      <div className="text-primary text-md flex items-center gap-3 font-medium">
-                        <span>✅ Resolved to: <strong className="text-on-surface">{resolvedConflicts[c.parameter_key]}</strong></span>
-                        <button onClick={() => {
-                          const newRc = {...resolvedConflicts};
-                          delete newRc[c.parameter_key];
-                          setResolvedConflicts(newRc);
-                        }} className="text-on-surface-variant hover:text-on-surface ml-auto underline text-sm">Undo</button>
+                      <div style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        background: C.accentDim, borderRadius: 8, padding: "8px 12px",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Icon name="check_circle" size={15} color={C.accent} />
+                          <span style={{ fontSize: 13, color: C.textPri, fontWeight: 500 }}>{res}</span>
+                        </div>
+                        <button
+                          onClick={() => setResolved(prev => { const n = {...prev}; delete n[c.parameter_key]; return n; })}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: C.textMuted, textDecoration: "underline" }}
+                        >Undo</button>
                       </div>
                     )}
                   </div>
@@ -318,13 +676,219 @@ export default function Home() {
               })}
             </div>
 
-            <div className="mt-10 flex gap-4">
-              <button onClick={() => { setShowConflictModal(false); setResolvedConflicts({}); setConflicts([]); }} className="flex-1 py-4 rounded-full border border-white/20 text-on-surface hover:bg-white/10 transition-colors font-bold">Cancel</button>
-              <button onClick={() => handleGenerate(true)} disabled={Object.keys(resolvedConflicts).length !== conflicts.length} className="flex-1 py-4 rounded-full bg-primary text-on-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-fixed transition-colors text-lg shadow-lg">Confirm & Generate</button>
+            <div style={{ display: "flex", gap: 10, marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.borderFaint}` }}>
+              <button
+                onClick={() => { setShowConflict(false); setResolved({}); setConflicts([]); }}
+                style={{
+                  flex: 1, height: 38, background: "transparent",
+                  border: `1px solid ${C.borderDef}`, borderRadius: 9,
+                  color: C.textSec, fontSize: 13, fontWeight: 500, cursor: "pointer",
+                }}
+              >Cancel</button>
+              <button
+                disabled={Object.keys(resolved).length !== conflicts.length || loading}
+                onClick={() => handleGenerate(true)}
+                style={{
+                  flex: 2, height: 38, background: C.accent,
+                  border: "none", borderRadius: 9, color: "white",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  opacity: Object.keys(resolved).length !== conflicts.length ? 0.5 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
+              >
+                <Icon name="done_all" size={15} color="white" />
+                Confirm &amp; Generate
+              </button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function TextAreaInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <textarea
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%", minHeight: 260, resize: "vertical",
+        background: C.bgOverlay, border: `1px solid ${focused ? C.accent : C.borderDef}`,
+        borderRadius: 10, padding: 16,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: 1.75,
+        color: C.textPri, outline: "none",
+        boxShadow: focused ? `0 0 0 3px ${C.accentDim}` : "none",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+        boxSizing: "border-box", display: "block",
+      }}
+    />
+  );
+}
+
+function Dropzone({ file, onFile, accept, label }: { file: File|null; onFile: (f: File|null) => void; accept: string; label: string }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 14, minHeight: 220, border: `1.5px dashed ${hov ? C.accent : C.borderDef}`,
+        borderRadius: 12, background: hov ? C.accentDim : C.bgElevated,
+        cursor: "pointer", transition: "border-color 0.2s, background 0.2s",
+      }}
+    >
+      <input type="file" accept={accept} onChange={e => onFile(e.target.files?.[0] ?? null)} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
+      <div style={{ width: 52, height: 52, borderRadius: 13, background: C.bgOverlay, border: `1px solid ${C.borderDef}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="upload_file" size={24} color={C.accent} />
+      </div>
+      {file ? (
+        <div style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontWeight: 600, color: C.textPri, fontSize: 13 }}>{file.name}</p>
+          <p style={{ margin: "3px 0 0", fontSize: 12, color: C.textTer }}>{(file.size/1024).toFixed(1)} KB · click to replace</p>
+        </div>
+      ) : (
+        <div style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontWeight: 600, color: C.textPri, fontSize: 13 }}>{label}</p>
+          <p style={{ margin: "3px 0 0", fontSize: 12, color: C.textTer }}>Click or drag & drop to browse</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SmallDropzone({ file, onFile, accept, icon, label }: { file: File|null; onFile: (f: File|null) => void; accept: string; icon: string; label: string }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        position: "relative", display: "flex", alignItems: "center", gap: 8,
+        height: 40, padding: "0 12px", border: `1px dashed ${hov ? C.accent : C.borderDef}`,
+        borderRadius: 8, background: hov ? C.accentDim : C.bgOverlay, cursor: "pointer",
+        transition: "border-color 0.15s, background 0.15s", overflow: "hidden",
+      }}
+    >
+      <input type="file" accept={accept} onChange={e => onFile(e.target.files?.[0] ?? null)} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
+      <Icon name={icon} size={15} color={C.textMuted} />
+      {file
+        ? <span style={{ fontSize: 12, color: C.accent, fontFamily: "'JetBrains Mono', monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+        : <span style={{ fontSize: 12.5, color: C.textSec }}>{label}</span>
+      }
+    </div>
+  );
+}
+
+function MemberRow({ value, index, onChange, onRemove, canRemove }: { value: string; index: number; onChange: (v: string) => void; onRemove: () => void; canRemove: boolean }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      background: C.bgOverlay, border: `1px solid ${focused ? C.accent : C.borderSubtle}`,
+      borderRadius: 8, padding: "6px 10px",
+      transition: "border-color 0.15s",
+    }}>
+      <Icon name="drag_indicator" size={14} color={C.textMuted} />
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={`Member ${index + 1}…`}
+        style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 13, color: C.textPri, fontFamily: "'Inter', sans-serif" }}
+      />
+      {canRemove && (
+        <button onClick={onRemove} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 5, color: C.textMuted, padding: 0 }}>
+          <Icon name="close" size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function GenerateButton({ loading, label, onClick }: { loading: boolean; label: string; onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      disabled={loading}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+        padding: "11px 20px", border: "none", borderRadius: 10,
+        background: loading ? C.bgSubtle : hov ? C.accentHov : C.accent,
+        color: "white", fontSize: 13.5, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
+        boxShadow: !loading && hov ? `0 0 28px ${C.accentGlow}` : "none",
+        transition: "background 0.15s, box-shadow 0.15s, transform 0.1s",
+        transform: hov && !loading ? "translateY(-1px)" : "none",
+        opacity: loading ? 0.6 : 1,
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      <Icon name="auto_awesome" size={16} color="white" style={{ fontVariationSettings: "'FILL' 1" }} />
+      {loading ? "Processing…" : label}
+    </button>
+  );
+}
+
+interface AdvancedLayoutProps {
+  hFont: string; setHFont: (v: string) => void;
+  hSize: string; setHSize: (v: string) => void;
+  spacing: string; setSpacing: (v: string) => void;
+  margin: string; setMargin: (v: string) => void;
+  cAlign: string; setCAlign: (v: string) => void;
+  codeLang: string; setCodeLang: (v: string) => void;
+}
+
+function AdvancedLayout({ hFont, setHFont, hSize, setHSize, spacing, setSpacing, margin, setMargin, cAlign, setCAlign, codeLang, setCodeLang }: AdvancedLayoutProps) {
+  return (
+    <div style={{ background: C.bgElevated, border: `1px solid ${C.borderSubtle}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", borderBottom: `1px solid ${C.borderFaint}`, background: "rgba(255,255,255,0.015)" }}>
+        <Icon name="tune" size={14} color={C.textMuted} />
+        <span style={{ fontSize: 10.5, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.09em", fontFamily: "'JetBrains Mono', monospace" }}>Advanced Layout Settings</span>
+      </div>
+      <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
+        <div><Label>Heading Font</Label>
+          <Select value={hFont} onChange={setHFont} options={["Times New Roman","Arial","Calibri","Helvetica","Georgia"]} />
+        </div>
+        <div><Label>Font Size (pt)</Label>
+          <Input value={hSize} onChange={setHSize} type="number" mono />
+        </div>
+        <div><Label>Line Spacing</Label>
+          <Input value={spacing} onChange={setSpacing} type="number" mono />
+        </div>
+        <div><Label>Margin (mm)</Label>
+          <Input value={margin} onChange={setMargin} type="number" mono />
+        </div>
+        <div>
+          <Label>Alignment</Label>
+          <div style={{ display: "flex", background: C.bgOverlay, border: `1px solid ${C.borderDef}`, borderRadius: 8, overflow: "hidden", height: 36 }}>
+            {[["Left","format_align_left"],["Center","format_align_center"],["Justify","format_align_justify"]].map(([a, icon]) => (
+              <button key={a} onClick={() => setCAlign(a)} style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                background: cAlign === a ? C.accentDim : "transparent",
+                border: "none", borderRight: a !== "Justify" ? `1px solid ${C.borderSubtle}` : "none",
+                cursor: "pointer", transition: "background 0.15s",
+                color: cAlign === a ? C.accent : C.textMuted,
+              }}>
+                <Icon name={icon} size={14} color={cAlign === a ? C.accent : C.textMuted} />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div><Label>Code Style</Label>
+          <Select value={codeLang} onChange={setCodeLang} options={["Auto","Python","JavaScript","Java","C++","Go"]} />
+        </div>
+      </div>
     </div>
   );
 }

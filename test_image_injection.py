@@ -119,7 +119,8 @@ config = StyleConfig(
     heading_font="Times New Roman",
     heading_size_pt=14.0,
     heading_bold=True,
-    heading_alignment=WD_ALIGN_PARAGRAPH.CENTER,
+    chapter_alignment=WD_ALIGN_PARAGRAPH.CENTER,
+    subheading_alignment=WD_ALIGN_PARAGRAPH.LEFT,
     content_font="Times New Roman",
     content_size_pt=12.0,
     content_alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
@@ -130,7 +131,7 @@ config = StyleConfig(
     continuous_sections=True
 )
 
-output_path = "test_images_no_highlight_terminal_fix.docx"
+output_path = "test_images_no_duplicates.docx"
 with open(output_path, "wb") as f:
     generate_report(structure, f, style_config=config)
     

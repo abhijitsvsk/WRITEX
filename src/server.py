@@ -18,7 +18,7 @@ app.include_router(academic_router)
 # Setup CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to the vercel domain
+    allow_origins=["*"],  # In production, restrict this to the vercel domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,7 +27,7 @@ app.add_middleware(
 def parse_style_config(style_json_str: str) -> StyleConfig:
     try:
         if not style_json_str:
-            return StyleConfig() # Use defaults
+            return StyleConfig()  # Use defaults
             
         cfg_dict = json.loads(style_json_str)
         align_map = {
@@ -57,24 +57,37 @@ def parse_style_config(style_json_str: str) -> StyleConfig:
         print(f"Error parsing style config: {e}")
         return StyleConfig()
 
-def process_formatting(text_content: str, api_key: str, style_name: str, style_cfg: StyleConfig, images: List[UploadFile], image_placement: str):
+def process_formatting(
+    text_content: str,
+    api_key: str,
+    style_name: str,
+    style_cfg: StyleConfig,
+    images: List[UploadFile],
+    image_placement: str,
+    provider: str = "groq",
+    model_name: Optional[str] = None,
+):
     if not api_key:
         raise HTTPException(status_code=400, detail="API Key is required")
         
     try:
         image_names = [img.filename for img in images] if images else []
         struct = structure_text(
-            text_content, api_key=api_key, style_name=style_name, available_images=image_names
+            text_content,
+            api_key=api_key,
+            style_name=style_name,
+            available_images=image_names,
+            provider=provider,
+            model_name=model_name,
         )
         
-        # Simple extraction logic from structurer.py
+        # Extract JSON array from response
         json_match = re.search(r"\[.*\]", struct, re.DOTALL)
         data = json.loads(json_match.group(0)) if json_match else []
 
         if images:
             img_nodes = []
             for img in images:
-                # Read file contents
                 file_bytes = img.file.read()
                 img_nodes.append({"type": "image", "content": file_bytes, "filename": img.filename})
                 
@@ -111,16 +124,18 @@ def process_formatting(text_content: str, api_key: str, style_name: str, style_c
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/format_text")
-async def api_format_text(
+def api_format_text(
     text: str = Form(...),
     api_key: str = Form(...),
     style_name: str = Form("Academic"),
     style_config: str = Form("{}"),
     image_placement: str = Form("Let AI Decide"),
-    images: List[UploadFile] = File(None)
+    provider: str = Form("groq"),
+    model_name: Optional[str] = Form(None),
+    images: List[UploadFile] = File(None),
 ):
     style_cfg = parse_style_config(style_config)
-    buf = process_formatting(text, api_key, style_name, style_cfg, images, image_placement)
+    buf = process_formatting(text, api_key, style_name, style_cfg, images or [], image_placement, provider, model_name)
     
     return StreamingResponse(
         buf,
@@ -129,16 +144,18 @@ async def api_format_text(
     )
 
 @app.post("/api/format_file")
-async def api_format_file(
+def api_format_file(
     file: UploadFile = File(...),
     api_key: str = Form(...),
     style_name: str = Form("Academic"),
     style_config: str = Form("{}"),
     image_placement: str = Form("Let AI Decide"),
-    images: List[UploadFile] = File(None)
+    provider: str = Form("groq"),
+    model_name: Optional[str] = Form(None),
+    images: List[UploadFile] = File(None),
 ):
     try:
-        file_bytes = await file.read()
+        file_bytes = file.file.read()
         
         if file.filename.endswith('.txt'):
             file_txt = file_bytes.decode('utf-8')
@@ -146,23 +163,27 @@ async def api_format_file(
             import pypdf
             pdf_io = io.BytesIO(file_bytes)
             reader = pypdf.PdfReader(pdf_io)
-            file_txt = "\\n".join([p.extract_text() for p in reader.pages])
+            # Fix: use real newline \n, not escaped literal \\n
+            file_txt = "\n".join([p.extract_text() or "" for p in reader.pages])
         elif file.filename.endswith('.docx'):
             from docx import Document
             docx_io = io.BytesIO(file_bytes)
             doc = Document(docx_io)
-            file_txt = "\\n".join([p.text for p in doc.paragraphs])
+            # Fix: use real newline \n, not escaped literal \\n
+            file_txt = "\n".join([p.text for p in doc.paragraphs])
         else:
-            raise HTTPException(status_code=400, detail="Unsupported file format")
+            raise HTTPException(status_code=400, detail="Unsupported file format. Use PDF, DOCX, or TXT.")
             
         style_cfg = parse_style_config(style_config)
-        buf = process_formatting(file_txt, api_key, style_name, style_cfg, images, image_placement)
+        buf = process_formatting(file_txt, api_key, style_name, style_cfg, images or [], image_placement, provider, model_name)
         
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": "attachment; filename=formatted_file.docx"}
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
