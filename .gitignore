@@ -31,7 +31,14 @@ project_memory.json
 !seed.docx
 *.txt
 !requirements.txt
+!CONTRIBUTING.md
+!README.md
+!LICENSE
 *.zip
 !demo.zip
 *.pdf
 !SAMPLE REPORT FOR REFERENCE.pdf
+debug_*.txt
+test_*.txt
+*_extracted.txt
+

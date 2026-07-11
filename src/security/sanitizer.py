@@ -26,6 +26,14 @@ class DataSanitizer:
         re.compile(
             r'(?i)(?:gcp_?)?(?:api_?)?key\s*[:=]\s*["\'](AIza[0-9A-Za-z-_]{35})["\']'
         ),
+        # Database URIs (Captures password to redact only the secret part)
+        re.compile(r'(?i)(?:postgres|postgresql|mysql|mongodb|redis)(?:\+srv)?:\/\/[^:]+:([^@]+)@[^/]+\/[^\s\'\"]*'),
+        # JWT Tokens (Catches standard 3-part base64 headers/payloads/signatures)
+        re.compile(r'(ey[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]*)'),
+        # Stripe and related modern API Keys
+        re.compile(r'(?:sk_live_|sk_test_|rk_live_|rk_test_)[0-9a-zA-Z]{24,34}'),
+        # Private Keys (PEM block headers)
+        re.compile(r'-----BEGIN (?:RSA|OPENSSH|PRIVATE) KEY-----[\s\S]*?-----END (?:RSA|OPENSSH|PRIVATE) KEY-----')
     ]
 
     PII_PATTERNS = [

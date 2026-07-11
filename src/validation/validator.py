@@ -9,9 +9,10 @@ class DocumentValidator:
     before delegating to the formatting layer.
     """
 
-    def __init__(self):
+    def __init__(self, constraints=None):
         self.validation_run_count = 0
         self.max_heals = 3
+        self.constraints = constraints
 
     def validate_and_heal(self, structure: List[Dict]) -> List[Dict]:
         """
@@ -227,12 +228,12 @@ class DocumentValidator:
                 cleaned = re.sub(r"^\s*\[\s*$", "", cleaned, flags=re.MULTILINE)
 
                 # 2. Eradicate fake citations e.g., (Smith, 2020) or [1] if generated arbitrarily outside references
-                # We aggressively strip [X] patterns heavily used as LLM placeholders
+                # We aggressively strip [X] patterns heavily used as LLM placeholders, using negative lookbehind to preserve real array indices like arr[1]
                 if (
                     item.get("type") == "paragraph"
                     and "list of figures" not in original_text.lower()
                 ):
-                    cleaned = re.sub(r"\[\s*\d+\s*\]", "", cleaned)
+                    cleaned = re.sub(r"(?<!\w)\[\s*\d+\s*\]", "", cleaned)
 
                 if cleaned != original_text:
                     was_healed = True

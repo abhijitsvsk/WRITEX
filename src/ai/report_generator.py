@@ -2,28 +2,47 @@ import os
 import json
 import re
 from typing import Dict, Any, List
-from groq import Groq
 import threading
 from .utils import generate_with_retry
 from .code_analysis_formatter import format_detailed_analysis_for_prompt
 from src.security.sanitizer import DataSanitizer
+from src.ai.provider_client import (
+    GROQ_DEFAULT_MODEL,
+    create_ai_client,
+    normalise_provider,
+)
 import textwrap
+
+# Module-level lock for cache concurrency across threads
+REPORT_CACHE_LOCK = threading.Lock()
 
 
 class ReportGenerator:
-    def __init__(self, api_key: str, model_name: str = "llama-3.3-70b-versatile"):
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = GROQ_DEFAULT_MODEL,
+        provider: str = "groq",
+    ):
         if not api_key:
             raise ValueError("API Key is required for ReportGenerator")
-        # Initialize Groq client
-        self.model = Groq(api_key=api_key)
+        self.provider = normalise_provider(provider)
         self.model_name = model_name
+        self.model = create_ai_client(
+            api_key=api_key,
+            provider=self.provider,
+            model_name=model_name,
+        )
 
         # Free-Tier Caching System
         self.cache_dir = os.path.join("cache")
         os.makedirs(self.cache_dir, exist_ok=True)
         self.cache_file = os.path.join(self.cache_dir, "report_cache.json")
-        self._cache_lock = threading.Lock()
         self.cache = self._load_cache()
+
+    def _cache_key(self, *parts) -> str:
+        safe_parts = [str(part).replace(" ", "_") for part in parts]
+        return "_".join([self.provider, self.model_name, *safe_parts])
 
     def _load_cache(self) -> Dict[str, str]:
         if os.path.exists(self.cache_file):
@@ -35,7 +54,7 @@ class ReportGenerator:
         return {}
 
     def _save_cache(self):
-        with self._cache_lock:
+        with REPORT_CACHE_LOCK:
             try:
                 with open(self.cache_file, "w", encoding="utf-8") as f:
                     json.dump(self.cache, f, indent=4)
@@ -44,7 +63,7 @@ class ReportGenerator:
 
     def clear_cache(self):
         """Thread-safe method to wipe the generation cache for a fresh run."""
-        with self._cache_lock:
+        with REPORT_CACHE_LOCK:
             self.cache = {}
             if os.path.exists(self.cache_file):
                 try:
@@ -105,7 +124,12 @@ class ReportGenerator:
             return self.fill_template(section_name, user_context)
 
         # Check Cache
-        cache_key = f"section_{section_name}_{user_context.get('title', 'default')}"
+        cache_key = self._cache_key(
+            "section",
+            section_name,
+            user_context.get("title", "default"),
+            user_context.get("session_id", ""),
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
@@ -149,7 +173,13 @@ class ReportGenerator:
         safe_summary = DataSanitizer.sanitize_payload(sliced_summary)
 
         # Cache Check
-        cache_key = f"sub_{chapter_title}_{subsection_title}_{user_context.get('title', 'default')}"
+        cache_key = self._cache_key(
+            "sub",
+            chapter_title,
+            subsection_title,
+            user_context.get("title", "default"),
+            user_context.get("session_id", ""),
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
@@ -187,6 +217,22 @@ class ReportGenerator:
         elif chapter_title == "Implementation":
             code_rule = f"5. **MANDATORY CORE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets explaining the core logic. To extract code, output a block object of type 'code_extraction' with the 'target_name' key. YOU MUST ONLY pick from these valid targets: {targets_str}."
 
+        inspiration_text = user_context.get("inspiration_text", "")
+        rewrite_mode = user_context.get("rewrite_mode", False)
+        
+        inspiration_rule = ""
+        if inspiration_text:
+            if rewrite_mode:
+                inspiration_rule = f"8. **INSPIRATION STRICT REWRITE (CRITICAL)**: You have been provided with an Inspiration File. You MUST rewrite the content for this subsection to STRICTLY match the exact tone, style, and vocabulary of this Inspiration File context:\n---\n{inspiration_text[:4000]}\n---"
+            else:
+                inspiration_rule = f"8. **INSPIRATION FORMATTING**: You have been provided with an Inspiration File. Maintain your original narrative structure, but adopt the general tone of this Inspiration File context:\n---\n{inspiration_text[:4000]}\n---"
+
+        available_images = user_context.get("available_images", [])
+        image_rule = ""
+        if available_images:
+            image_list = ", ".join(available_images)
+            image_rule = f"9. **IMAGE INSERTION**: You have the following images available to insert: [{image_list}]. To insert an image at the most logically relevant position in this subsection, emit a block of type 'image_insertion' with the 'filename' key. Do not hallucinate filenames."
+
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
         You are an expert Academic Editor and Strategic System Architect writing a formal B.Tech Project Report.
@@ -203,9 +249,10 @@ class ReportGenerator:
         OUTPUT FORMAT (CRITICAL JSON SCHEMA):
         You MUST return a strictly valid JSON object. 
         The JSON object must contain a single root key "blocks" containing a list of objects.
-        Each object in the "blocks" list must have a "type" key (either "paragraph" or "code_extraction").
+        Each object in the "blocks" list must have a "type" key (either "paragraph", "code_extraction", or "image_insertion").
         - For text paragraphs, use type "paragraph" and put the academic text in the "text" key.
         - For code extraction, use type "code_extraction" and put the exact function or class name from the valid targets list into the "target_name" key.
+        - For image insertion, use type "image_insertion" and put the exact filename in the "filename" key.
         
         JSON Example:
         {{
@@ -223,6 +270,9 @@ class ReportGenerator:
         {code_rule}
         {figure_rule}
         7. **STRICT LENGTH**: The combined text of all paragraphs should be roughly 300-350 words. Do not trail off or include meta-commentary.
+        8. **PRONOUNS**: {user_context.get('pronoun_mode', 'Always use third-person objective ("The system", "This project"). DO NOT use "We", "I", "Our", or "My".')}
+        {inspiration_rule}
+        {image_rule}
         """
 
         result = generate_with_retry(self.model, prompt, response_format={"type": "json_object"})
@@ -314,7 +364,11 @@ class ReportGenerator:
         Generates body paragraphs for Lit Survey.
         """
         # Check Cache
-        cache_key = f"lit_survey_{user_context.get('title', 'default')}"
+        cache_key = self._cache_key(
+            "lit_survey",
+            user_context.get("title", "default"),
+            user_context.get("session_id", ""),
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 

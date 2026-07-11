@@ -5,8 +5,11 @@ requests
 black
 python-dotenv
 groq
-PyPDF2
+pypdf
 pytest
 flake8
 mypy
 bandit
+fastapi
+uvicorn
+python-multipart

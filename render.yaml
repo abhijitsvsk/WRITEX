@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: writex-backend
+    env: docker
+    region: oregon
+    plan: free
+    branch: main
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+    healthCheckPath: /

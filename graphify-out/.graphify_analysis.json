@@ -1,0 +1,652 @@
+{
+  "communities": {
+    "0": [
+      "cli_report_gen_main",
+      "cli_report_gen_py",
+      "compiler_documentcompiler",
+      "compiler_documentcompiler_build_constraint_directive",
+      "compiler_documentcompiler_compile_structure",
+      "compiler_documentcompiler_generate_factual_doc_references",
+      "compiler_documentcompiler_init",
+      "compiler_documentcompiler_parse_body_blocks",
+      "compiler_documentcompiler_validate_ast",
+      "compiler_rationale_337",
+      "compiler_rationale_361",
+      "compiler_rationale_410",
+      "compiler_rationale_520",
+      "compiler_rationale_86",
+      "compiler_rationale_99",
+      "constraints_rationale_35",
+      "constraints_resolvedconstraints",
+      "content_ant_contentant_execute",
+      "report_generator_rationale_102",
+      "report_generator_rationale_131",
+      "report_generator_rationale_242",
+      "report_generator_rationale_260",
+      "report_generator_rationale_315",
+      "report_generator_rationale_48",
+      "report_generator_rationale_58",
+      "report_generator_reportgenerator",
+      "report_generator_reportgenerator_build_prompt",
+      "report_generator_reportgenerator_clear_cache",
+      "report_generator_reportgenerator_derive_project_context",
+      "report_generator_reportgenerator_extract_metadata_from_sample",
+      "report_generator_reportgenerator_fill_template",
+      "report_generator_reportgenerator_generate_chapter_intro",
+      "report_generator_reportgenerator_generate_literature_survey_body",
+      "report_generator_reportgenerator_generate_section",
+      "report_generator_reportgenerator_generate_subsection_body",
+      "report_generator_reportgenerator_init",
+      "report_generator_reportgenerator_load_cache",
+      "report_generator_reportgenerator_save_cache",
+      "report_generator_reportgenerator_slice_context",
+      "sanitizer_datasanitizer",
+      "sanitizer_rationale_6",
+      "sanitizer_sanitize_payload",
+      "sanitizer_sanitize_string",
+      "src_core_compiler_py",
+      "src_security_sanitizer_py",
+      "test_ack_template_test_ack_template",
+      "test_structural_audit_rationale_189",
+      "test_structural_audit_rationale_38",
+      "test_structural_audit_rationale_62",
+      "test_structural_audit_rationale_88",
+      "test_structural_audit_test_acknowledgement_template_plural",
+      "test_structural_audit_test_acknowledgement_template_singular",
+      "test_structural_audit_test_certificate_template",
+      "test_structural_audit_test_no_student_name_leak",
+      "test_test_ack_template_py",
+      "tests_verify_specificity_py",
+      "utils_generate_with_retry",
+      "utils_rationale_24",
+      "verify_specificity_test_report_generator"
+    ],
+    "1": [
+      "abc",
+      "ant",
+      "architect_architect",
+      "architect_architect_expand_structure",
+      "architect_architect_finalize",
+      "architect_architect_init",
+      "architect_architect_plan",
+      "architect_architect_process_node_with_retry",
+      "architect_architect_run",
+      "architect_architect_select_ant",
+      "architect_rationale_10",
+      "architect_rationale_117",
+      "architect_rationale_180",
+      "architect_rationale_20",
+      "architect_rationale_229",
+      "architect_rationale_64",
+      "base_ant_ant",
+      "base_ant_antresult",
+      "base_ant_execute",
+      "base_ant_rationale_16",
+      "blueprint_blueprint_get_context",
+      "blueprint_blueprint_update_node",
+      "blueprint_documentnode",
+      "blueprint_rationale_10",
+      "blueprint_rationale_55",
+      "blueprint_rationale_68",
+      "code_ant_codeant",
+      "code_ant_rationale_10",
+      "content_ant_contentant",
+      "content_ant_rationale_8",
+      "format_ant_formatant",
+      "format_ant_rationale_9",
+      "src_blast_ants_base_ant_py",
+      "src_blast_ants_code_ant_py",
+      "src_blast_ants_content_ant_py",
+      "src_blast_ants_format_ant_py",
+      "src_blast_ants_structure_ant_py",
+      "src_blast_ants_style_ant_py",
+      "src_blast_architect_py",
+      "src_blast_blueprint_py",
+      "structure_ant_rationale_9",
+      "structure_ant_structureant",
+      "style_ant_styleant",
+      "style_ant_styleant_execute",
+      "test_ants_test_content_ant_failure_no_key",
+      "test_ants_test_content_ant_success",
+      "test_ants_test_structure_ant_success",
+      "test_ants_testants",
+      "test_architect_flow_test_retry_logic_failure_exhausted",
+      "test_architect_flow_test_retry_logic_success_after_failure",
+      "test_architect_flow_testarchitectflow",
+      "test_architect_flow_testarchitectflow_setup",
+      "test_test_ants_py",
+      "test_test_architect_flow_py"
+    ],
+    "2": [
+      "code_analyzer_codeanalyzer",
+      "code_analyzer_codeanalyzer_add_library",
+      "code_analyzer_codeanalyzer_analyze_file_memory",
+      "code_analyzer_codeanalyzer_analyze_generic_ast",
+      "code_analyzer_codeanalyzer_analyze_in_memory",
+      "code_analyzer_codeanalyzer_analyze_python_ast",
+      "code_analyzer_codeanalyzer_analyze_zip",
+      "code_analyzer_codeanalyzer_check_ml_patterns",
+      "code_analyzer_codeanalyzer_get_summary_doc",
+      "code_analyzer_codeanalyzer_infer_project_type",
+      "code_analyzer_codeanalyzer_init",
+      "code_analyzer_codeanalyzer_score_file",
+      "code_analyzer_rationale_30",
+      "code_ant_codeant_execute",
+      "code_parser_classinfo",
+      "code_parser_codeanalysisresult",
+      "code_parser_codeparser",
+      "code_parser_codeparser_detect_patterns",
+      "code_parser_codeparser_extract_class",
+      "code_parser_codeparser_extract_function",
+      "code_parser_codeparser_extract_snippets",
+      "code_parser_codeparser_has_recursion",
+      "code_parser_codeparser_init",
+      "code_parser_codeparser_parse_file",
+      "code_parser_functioninfo",
+      "code_parser_merge_analysis_results",
+      "code_parser_rationale_1",
+      "code_parser_rationale_138",
+      "code_parser_rationale_14",
+      "code_parser_rationale_160",
+      "code_parser_rationale_181",
+      "code_parser_rationale_189",
+      "code_parser_rationale_229",
+      "code_parser_rationale_263",
+      "code_parser_rationale_27",
+      "code_parser_rationale_38",
+      "code_parser_rationale_52",
+      "code_parser_rationale_86",
+      "src_analysis_code_analyzer_py",
+      "src_analysis_code_parser_py",
+      "src_analysis_project_summary_py",
+      "test_verify_code_to_report_py",
+      "verify_code_to_report_create_dummy_zip",
+      "verify_code_to_report_test_structure_lock_flow",
+      "verify_specificity_test_code_extraction"
+    ],
+    "3": [
+      "format_ant_formatant_execute",
+      "formatting_add_list_of_figures",
+      "formatting_add_page_numbers",
+      "formatting_add_table_of_contents",
+      "formatting_generate_report",
+      "formatting_patch_toc_lof_pages",
+      "formatting_postbuild_estimate_pages",
+      "formatting_rationale_11",
+      "formatting_rationale_119",
+      "formatting_rationale_163",
+      "formatting_rationale_225",
+      "formatting_rationale_721",
+      "formatting_rationale_751",
+      "formatting_validate_document_structure",
+      "src_file_formatting_formatting_py",
+      "test_docx_integrity_rationale_38",
+      "test_docx_integrity_rationale_55",
+      "test_docx_integrity_rationale_66",
+      "test_docx_integrity_rationale_8",
+      "test_docx_integrity_sample_docx_path",
+      "test_docx_integrity_test_docx_can_be_opened",
+      "test_docx_integrity_test_figure_seq_fields",
+      "test_docx_integrity_test_paragraph_styles",
+      "test_docx_integrity_test_sdt_blocks_exist",
+      "test_verify_advanced_styles_py",
+      "test_verify_app_logic_py",
+      "test_verify_deep_style_py",
+      "test_verify_styles_py",
+      "tests_test_docx_integrity_py",
+      "verify_advanced_styles_verify_apa_hanging_indent",
+      "verify_advanced_styles_verify_ieee_numbering",
+      "verify_app_logic_test_formatting_logic",
+      "verify_deep_style_test_dynamic_styling",
+      "verify_styles_test_styles"
+    ],
+    "4": [
+      "debug_full_flow_mockstyleanalyzer",
+      "debug_full_flow_mockstyleanalyzer_extract_text",
+      "main_flow_main",
+      "run_prod_test_main",
+      "run_prod_test_py",
+      "src_analysis_style_analyzer_py",
+      "src_main_flow_py",
+      "style_analyzer_await_module_availability",
+      "style_analyzer_rationale_119",
+      "style_analyzer_rationale_17",
+      "style_analyzer_rationale_218",
+      "style_analyzer_rationale_249",
+      "style_analyzer_rationale_272",
+      "style_analyzer_rationale_31",
+      "style_analyzer_rationale_331",
+      "style_analyzer_rationale_70",
+      "style_analyzer_styleanalyzer",
+      "style_analyzer_styleanalyzer_analyze_style",
+      "style_analyzer_styleanalyzer_analyze_visual_style",
+      "style_analyzer_styleanalyzer_detect_structure",
+      "style_analyzer_styleanalyzer_extract_specific_sections",
+      "style_analyzer_styleanalyzer_extract_text",
+      "style_analyzer_styleanalyzer_init",
+      "style_analyzer_styleanalyzer_ocr_image",
+      "style_ant_rationale_8",
+      "styleanalyzer",
+      "test_debug_full_flow_py",
+      "test_verify_visual_extraction_py",
+      "verify_visual_extraction_test_visual_extraction"
+    ],
+    "5": [
+      "blueprint_blueprint",
+      "blueprint_blueprint_get_pending_nodes",
+      "blueprint_blueprint_init",
+      "blueprint_blueprint_load",
+      "blueprint_blueprint_load_structure",
+      "blueprint_blueprint_save",
+      "blueprint_blueprint_set_context",
+      "blueprint_blueprint_to_json",
+      "blueprint_rationale_21",
+      "blueprint_rationale_33",
+      "blueprint_rationale_45",
+      "blueprint_rationale_72",
+      "blueprint_rationale_76",
+      "blueprint_rationale_94",
+      "blueprint_rationale_99",
+      "create_seed_create_seed",
+      "create_seed_py",
+      "main_main",
+      "para_type_detector_detect",
+      "project_summary_projectsummary",
+      "project_summary_projectsummary_to_json",
+      "project_summary_rationale_25",
+      "src_blast_trigger_py",
+      "src_main_py",
+      "src_utils_para_type_detector_py",
+      "trigger_rationale_21",
+      "trigger_trigger",
+      "trigger_trigger_execute",
+      "trigger_trigger_init"
+    ],
+    "6": [
+      "src_validation_validator_py",
+      "test_pipeline_mock_gen_body",
+      "test_pipeline_mocksummary",
+      "test_pipeline_mocksummary_init",
+      "test_pipeline_mocksummary_to_json",
+      "test_pipeline_py",
+      "test_structural_audit_rationale_1",
+      "test_structural_audit_rationale_102",
+      "test_structural_audit_rationale_138",
+      "test_structural_audit_rationale_165",
+      "test_structural_audit_test_validator_clean_structure",
+      "test_structural_audit_test_validator_heals_missing_lof",
+      "test_structural_audit_test_validator_heals_reference_placeholder",
+      "test_test_structural_audit_py",
+      "validator_documentvalidator",
+      "validator_documentvalidator_heal_failed_extraction",
+      "validator_documentvalidator_heal_missing_lof",
+      "validator_documentvalidator_heal_text_artifacts",
+      "validator_documentvalidator_heal_whitespace",
+      "validator_documentvalidator_init",
+      "validator_documentvalidator_run_pass",
+      "validator_documentvalidator_validate_and_heal",
+      "validator_rationale_143",
+      "validator_rationale_156",
+      "validator_rationale_17",
+      "validator_rationale_189",
+      "validator_rationale_214",
+      "validator_rationale_6"
+    ],
+    "7": [
+      "conflict_resolver_check_single_conflict",
+      "conflict_resolver_detect_conflicts",
+      "conflict_resolver_normalise_reference_params",
+      "conflict_resolver_rationale_1",
+      "conflict_resolver_rationale_124",
+      "conflict_resolver_rationale_39",
+      "conflict_resolver_rationale_55",
+      "constraints_conflictrecord",
+      "constraints_rationale_1",
+      "constraints_rationale_12",
+      "constraints_rationale_24",
+      "constraints_specialrequest",
+      "exception",
+      "request_interpreter_interpret_request",
+      "request_interpreter_rationale_1",
+      "request_interpreter_rationale_13",
+      "request_interpreter_rationale_56",
+      "request_interpreter_requestinterpretationerror",
+      "src_ai_request_interpreter_py",
+      "src_models_constraints_py",
+      "src_validation_conflict_resolver_py",
+      "test_verify_retry_logic_py",
+      "verify_retry_logic_mockmodel",
+      "verify_retry_logic_mockmodel_generate_content",
+      "verify_retry_logic_mockmodel_init"
+    ],
+    "8": [
+      "app_add_member",
+      "app_remove_member",
+      "app_run_formatting",
+      "app_update_progress",
+      "code_analysis_formatter_format_detailed_analysis_for_prompt",
+      "code_analysis_formatter_rationale_1",
+      "code_analysis_formatter_rationale_7",
+      "src_ai_code_analysis_formatter_py",
+      "src_ai_report_generator_py",
+      "src_ai_structurer_py",
+      "src_ai_utils_py",
+      "src_app_py",
+      "structure_ant_structureant_execute",
+      "structurer_structure_text",
+      "test_verify_ai_py",
+      "verify_ai_test_ai_connection"
+    ],
+    "9": [
+      "src_file_formatting_toc_patcher_py",
+      "toc_patcher_build_page_map_com",
+      "toc_patcher_normalize",
+      "toc_patcher_patch_docx",
+      "toc_patcher_patch_toc_with_real_pages",
+      "toc_patcher_rationale_1",
+      "toc_patcher_rationale_123",
+      "toc_patcher_rationale_24",
+      "toc_patcher_rationale_28",
+      "toc_patcher_rationale_66",
+      "toc_patcher_rationale_84",
+      "toc_patcher_read_placeholder_entries"
+    ],
+    "10": [
+      "ast_analysis_build_mermaid_diagram",
+      "ast_analysis_extract_file_structure",
+      "ast_analysis_generate_basic_summary",
+      "ast_analysis_rationale_43",
+      "ast_analysis_rationale_6",
+      "ast_analysis_rationale_68",
+      "src_ast_analysis_py"
+    ],
+    "11": [
+      "src_file_formatting_word_field_updater_py",
+      "word_field_updater_rationale_1",
+      "word_field_updater_rationale_70",
+      "word_field_updater_update_toc_via_com"
+    ],
+    "12": [
+      "playground_extract_json",
+      "playground_rationale_8",
+      "src_playground_py"
+    ],
+    "13": [
+      "conftest_mock_groq_api",
+      "conftest_rationale_6",
+      "tests_conftest_py"
+    ],
+    "14": [
+      "debug_ack_extraction_extract_specific_sections_debug",
+      "test_debug_ack_extraction_py"
+    ],
+    "15": [
+      "tests_verify_app_startup_py",
+      "verify_app_startup_verify_startup"
+    ],
+    "16": [
+      "com_update_py"
+    ],
+    "17": [
+      "debug_sdt_py"
+    ],
+    "18": [
+      "e2e_test_py"
+    ],
+    "19": [
+      "run_demo_py"
+    ],
+    "20": [
+      "test_ack_template_py"
+    ],
+    "21": [
+      "test_model_py"
+    ],
+    "22": [
+      "src_init_py"
+    ],
+    "23": [
+      "src_ai_init_py"
+    ],
+    "24": [
+      "src_analysis_init_py"
+    ],
+    "25": [
+      "src_blast_init_py"
+    ],
+    "26": [
+      "base_ant_rationale_23"
+    ],
+    "27": [
+      "src_blast_ants_init_py"
+    ],
+    "28": [
+      "src_file_formatting_init_py"
+    ],
+    "29": [
+      "src_models_init_py"
+    ],
+    "30": [
+      "sanitizer_rationale_46"
+    ],
+    "31": [
+      "sanitizer_rationale_71"
+    ],
+    "32": [
+      "src_utils_init_py"
+    ],
+    "33": [
+      "test_check_schema_py"
+    ],
+    "34": [
+      "test_text_strt_1_py"
+    ],
+    "35": [
+      "test_verify_app_startup_py"
+    ],
+    "36": [
+      "test_verify_code_analysis_py"
+    ],
+    "37": [
+      "test_verify_report_generator_py"
+    ],
+    "38": [
+      "tests_debug_structurer_py"
+    ],
+    "39": [
+      "tests_verify_app_imports_py"
+    ],
+    "40": [
+      "tests_verify_imports_py"
+    ]
+  },
+  "cohesion": {
+    "0": 0.07,
+    "1": 0.1,
+    "2": 0.08,
+    "3": 0.07,
+    "4": 0.09,
+    "5": 0.11,
+    "6": 0.11,
+    "7": 0.11,
+    "8": 0.12,
+    "9": 0.24,
+    "10": 0.29,
+    "11": 0.5,
+    "12": 0.67,
+    "13": 0.67,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0,
+    "24": 1.0,
+    "25": 1.0,
+    "26": 1.0,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0,
+    "30": 1.0,
+    "31": 1.0,
+    "32": 1.0,
+    "33": 1.0,
+    "34": 1.0,
+    "35": 1.0,
+    "36": 1.0,
+    "37": 1.0,
+    "38": 1.0,
+    "39": 1.0,
+    "40": 1.0
+  },
+  "gods": [
+    {
+      "id": "report_generator_reportgenerator",
+      "label": "ReportGenerator",
+      "degree": 45
+    },
+    {
+      "id": "blueprint_blueprint",
+      "label": "Blueprint",
+      "degree": 23
+    },
+    {
+      "id": "project_summary_projectsummary",
+      "label": "ProjectSummary",
+      "degree": 22
+    },
+    {
+      "id": "code_analyzer_codeanalyzer",
+      "label": "CodeAnalyzer",
+      "degree": 21
+    },
+    {
+      "id": "validator_documentvalidator",
+      "label": "DocumentValidator",
+      "degree": 21
+    },
+    {
+      "id": "architect_architect",
+      "label": "Architect",
+      "degree": 20
+    },
+    {
+      "id": "blueprint_documentnode",
+      "label": "DocumentNode",
+      "degree": 20
+    },
+    {
+      "id": "base_ant_antresult",
+      "label": "AntResult",
+      "degree": 19
+    },
+    {
+      "id": "formatting_generate_report",
+      "label": "generate_report()",
+      "degree": 19
+    },
+    {
+      "id": "content_ant_contentant",
+      "label": "ContentAnt",
+      "degree": 18
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Returns JSON-safe dict. detailed_analysis is NOT included here         because",
+      "target": "CodeAnalysisResult",
+      "source_files": [
+        "src\\analysis\\project_summary.py",
+        "src\\analysis\\code_parser.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `Returns JSON-safe dict. detailed_analysis is NOT included here         because` unexpectedly reaches hub `CodeAnalysisResult`"
+    },
+    {
+      "source": "Represents a node in the document structure.",
+      "target": "ProjectSummary",
+      "source_files": [
+        "src\\blast\\blueprint.py",
+        "src\\analysis\\project_summary.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `Represents a node in the document structure.` unexpectedly reaches hub `ProjectSummary`"
+    },
+    {
+      "source": "Update a node's state.",
+      "target": "ProjectSummary",
+      "source_files": [
+        "src\\blast\\blueprint.py",
+        "src\\analysis\\project_summary.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `Update a node's state.` unexpectedly reaches hub `ProjectSummary`"
+    },
+    {
+      "source": "Return global context.",
+      "target": "ProjectSummary",
+      "source_files": [
+        "src\\blast\\blueprint.py",
+        "src\\analysis\\project_summary.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `Return global context.` unexpectedly reaches hub `ProjectSummary`"
+    },
+    {
+      "source": "main()",
+      "target": "generate_report()",
+      "source_files": [
+        "cli_report_gen.py",
+        "src\\file_formatting\\formatting.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `ReportGenerator` connect `Community 0` to `Community 1`, `Community 2`, `Community 4`, `Community 6`, `Community 8`?",
+      "why": "High betweenness centrality (0.298) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `generate_report()` connect `Community 3` to `Community 0`, `Community 8`, `Community 4`, `Community 5`?",
+      "why": "High betweenness centrality (0.171) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `main()` connect `Community 4` to `Community 0`, `Community 2`, `Community 3`, `Community 5`?",
+      "why": "High betweenness centrality (0.168) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 31 inferred relationships involving `ReportGenerator` (e.g. with `DataSanitizer` and `ContentAnt`) actually correct?",
+      "why": "`ReportGenerator` has 31 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 12 inferred relationships involving `Blueprint` (e.g. with `Architect` and `The Architect orchestrates the execution flow.     It selects the right Ant for`) actually correct?",
+      "why": "`Blueprint` has 12 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 20 inferred relationships involving `ProjectSummary` (e.g. with `CodeAnalyzer` and `Extracts and analyzes a ZIP file (from a file-like object or path) in-memory.`) actually correct?",
+      "why": "`ProjectSummary` has 20 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 9 inferred relationships involving `CodeAnalyzer` (e.g. with `ProjectSummary` and `CodeParser`) actually correct?",
+      "why": "`CodeAnalyzer` has 9 INFERRED edges - model-reasoned connections that need verification."
+    }
+  ]
+}

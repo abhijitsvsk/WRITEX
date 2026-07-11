@@ -11,6 +11,12 @@ from pathlib import Path
 import streamlit as st
 import docx  # type: ignore
 from dotenv import load_dotenv
+import uuid
+
+# Special Requests & Conflict Resolution
+from src.models.constraints import SpecialRequest, ConflictRecord, ResolvedConstraints
+from src.ai.request_interpreter import interpret_request, RequestInterpretationError, PARAMETER_LABELS
+from src.validation.conflict_resolver import detect_conflicts, normalise_reference_params, check_single_conflict
 
 # --- Page Config ---
 st.set_page_config(page_title="Writex - AI Document Formatter", page_icon="📝")
@@ -21,8 +27,12 @@ root_path = Path(__file__).parent.parent
 if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
 
+# Feature Toggle for upcoming Map-Reduce AST integration
+USE_EXPERIMENTAL_FEATURES = False
+
 # --- Imports ---
-from src.file_formatting.formatting import generate_report
+from src.file_formatting.formatting import generate_report, StyleConfig
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from src.analysis.style_analyzer import StyleAnalyzer
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.ai.report_generator import ReportGenerator
@@ -30,7 +40,7 @@ from src.core.compiler import DocumentCompiler, REPORT_SCHEMA
 from src.validation.validator import DocumentValidator
 
 
-def run_formatting(text_content, api_key_val, style_name):
+def run_formatting(text_content, api_key_val, style_name, style_cfg, uploaded_images=None, image_placement=None):
     # Keep lightweight formatting for Tabs 1 & 2
     from src.ai.structurer import structure_text
 
@@ -38,14 +48,44 @@ def run_formatting(text_content, api_key_val, style_name):
         return
     with st.spinner("Structuring..."):
         try:
+            image_names = [img.name for img in uploaded_images] if uploaded_images else []
             struct = structure_text(
-                text_content, api_key=api_key_val, style_name=style_name
+                text_content, api_key=api_key_val, style_name=style_name, available_images=image_names
             )
             json_match = re.search(r"\[.*\]", struct, re.DOTALL)
             data = json.loads(json_match.group(0)) if json_match else []
 
+            # Handle Image AST Injection
+            if uploaded_images:
+                img_nodes = [{"type": "image", "content": img.getvalue(), "filename": img.name} for img in uploaded_images]
+                
+                if image_placement == "Top":
+                    data = img_nodes + data
+                elif image_placement == "Bottom":
+                    data = data + img_nodes
+                else:
+                    # Let AI Decide logic
+                    # The AI emitted {"type": "image_insertion", "filename": "x.png"}
+                    new_data = []
+                    for block in data:
+                        if block.get("type") == "image_insertion":
+                            fname = block.get("filename")
+                            matched = next((node for node in img_nodes if node["filename"] == fname), None)
+                            if matched:
+                                new_data.append(matched)
+                        else:
+                            new_data.append(block)
+                    
+                    # Also append any leftover images that the AI missed (optional, but good for UX)
+                    used_fnames = [b.get("filename") for b in new_data if b.get("type") == "image"]
+                    for node in img_nodes:
+                        if node["filename"] not in used_fnames:
+                            new_data.append(node)
+                            
+                    data = new_data
+
             buf = io.BytesIO()
-            generate_report(data, buf, style_name=style_name)
+            generate_report(data, buf, style_name=style_name, style_config=style_cfg)
             st.download_button("Download", buf.getvalue(), "formatted.docx")
         except Exception as e:
             st.error(str(e))
@@ -56,24 +96,139 @@ st.title("📝 Writex: Academic Report Engine")
 print("--- App Reloaded with Team Input ---")
 
 with st.sidebar:
-    api_key = st.text_input(
-        "Groq API Key", type="password", value=os.environ.get("GROQ_API_KEY", "")
+    ai_provider = st.selectbox("AI Provider", ["Groq", "DeepSeek"])
+    provider_key = ai_provider.lower()
+    provider_env_key = "DEEPSEEK_API_KEY" if provider_key == "deepseek" else "GROQ_API_KEY"
+    model_options = (
+        ["deepseek-chat", "deepseek-reasoner"]
+        if provider_key == "deepseek"
+        else ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]
     )
-    st.header("Formatting")
-    style_opts = ["Standard", "IEEE", "APA"]
-    sel_style = st.selectbox("Style", style_opts)
+    from src.ai.provider_client import DEEPSEEK_DEFAULT_MODEL, GROQ_DEFAULT_MODEL
+    default_model = DEEPSEEK_DEFAULT_MODEL if provider_key == "deepseek" else GROQ_DEFAULT_MODEL
+    model_index = model_options.index(default_model) if default_model in model_options else 0
+    selected_model = st.selectbox("AI Model", model_options, index=model_index)
+    api_key = st.text_input(
+        f"{ai_provider} API Key", type="password", value=os.environ.get(provider_env_key, "")
+    )
+    st.markdown("---")
+    if st.button("🧹 Clear Session State (Start Fresh)"):
+        st.session_state.clear()
+        st.rerun()
+
 
 tab1, tab2, tab3 = st.tabs(["📄 Text", "📂 File", "🎓 Academic Report (Strict)"])
 
+
+def render_advanced_settings(key_suffix):
+    import json
+    import os
+    from src.file_formatting.formatting import StyleConfig
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    
+    preset = {}
+    if os.path.exists("style_preset.json"):
+        try:
+            with open("style_preset.json", "r") as pf:
+                preset = json.load(pf)
+        except:
+            pass
+            
+    with st.expander("⚙️ Advanced Layout & Formatting (Optional)"):
+        st.caption("Override template with granular rules")
+        adv_margin = st.number_input("Margin (Inches)", value=preset.get("margin", 1.0), step=0.25, key="margin"+key_suffix)
+        
+        st.markdown("**Headings**")
+        adv_h_font = st.selectbox("Heading Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("h_font", "Times New Roman")), key="hfont"+key_suffix)
+        adv_h_size = st.number_input("Heading Size (pt)", value=preset.get("h_size", 14.0), step=1.0, key="hsize"+key_suffix)
+        adv_chap_align = st.selectbox("Chapter/Title Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("chap_align", "Center")), key="calign"+key_suffix)
+        adv_subh_align = st.selectbox("Sub-Heading Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("subh_align", "Left")), key="salign"+key_suffix)
+        adv_h_bold = st.checkbox("Heading Bold", value=preset.get("h_bold", True), key="hbold"+key_suffix)
+        
+        st.markdown("**Content & Code**")
+        adv_c_font = st.selectbox("Content Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("c_font", "Times New Roman")), key="cfont"+key_suffix)
+        adv_c_size = st.number_input("Content Size (pt)", value=preset.get("c_size", 12.0), step=1.0, key="csize"+key_suffix)
+        adv_c_align = st.selectbox("Content Alignment", ["Left", "Center", "Right", "Justify"], index=["Left", "Center", "Right", "Justify"].index(preset.get("c_align", "Justify")), key="coalign"+key_suffix)
+        
+        adv_code_lang = st.selectbox("Code Language (Syntax Highlighting)", ["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"], index=["Auto", "None", "Python", "R", "Java", "C++", "JavaScript", "HTML", "CSS"].index(preset.get("code_lang", "Auto")), key="codelang"+key_suffix)
+        
+        st.markdown("**Spacing & Layout**")
+        adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25, key="spacing"+key_suffix)
+        adv_space_before = st.number_input("Space Before (pt)", value=preset.get("space_before", 0.0), step=1.0, key="sbefore"+key_suffix)
+        adv_space_after = st.number_input("Space After (pt)", value=preset.get("space_after", 0.0), step=1.0, key="safter"+key_suffix)
+        adv_continuous = st.checkbox("Continuous Sections (No Page Breaks)", value=preset.get("continuous", False), key="cont"+key_suffix)
+        
+        if st.button("💾 Save as Preset", key="save"+key_suffix):
+            with open("style_preset.json", "w") as pf:
+                json.dump({
+                    "margin": adv_margin, "h_font": adv_h_font, "h_size": adv_h_size, 
+                    "chap_align": adv_chap_align, "subh_align": adv_subh_align, "h_bold": adv_h_bold, "c_font": adv_c_font,
+                    "c_size": adv_c_size, "c_align": adv_c_align, "spacing": adv_spacing,
+                    "space_before": adv_space_before, "space_after": adv_space_after,
+                    "code_lang": adv_code_lang, "continuous": adv_continuous
+                }, pf)
+            st.success("Preset Saved!")
+
+    align_map = {"Left": WD_ALIGN_PARAGRAPH.LEFT, "Center": WD_ALIGN_PARAGRAPH.CENTER, "Right": WD_ALIGN_PARAGRAPH.RIGHT, "Justify": WD_ALIGN_PARAGRAPH.JUSTIFY}
+    
+    style_config = StyleConfig(
+        margin_inches=adv_margin,
+        heading_font=adv_h_font,
+        heading_size_pt=adv_h_size,
+        heading_bold=adv_h_bold,
+        chapter_alignment=align_map[adv_chap_align],
+        subheading_alignment=align_map[adv_subh_align],
+        content_font=adv_c_font,
+        content_size_pt=adv_c_size,
+        content_alignment=align_map[adv_c_align],
+        line_spacing=adv_spacing,
+        space_before_pt=adv_space_before,
+        space_after_pt=adv_space_after,
+        code_language=adv_code_lang,
+        continuous_sections=adv_continuous
+    )
+    return style_config
+
+
 with tab1:
+    st.markdown("### Step 1: Provide Content")
     txt = st.text_area("Raw Text")
+    
+    st.markdown("### Step 2: Attach Media (Optional)")
+    uploaded_images_t1 = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="img_t1")
+    image_placement_t1 = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"], key="place_t1")
+    
+    st.markdown("### Step 3: Advanced Layout (Optional)")
+    style_config_t1 = render_advanced_settings("_t1")
+    
+    st.markdown("### Step 4: Generate Document")
     if st.button("Format Text"):
-        run_formatting(txt, api_key, sel_style)
+        run_formatting(txt, api_key, sel_style, style_config_t1, uploaded_images_t1, image_placement_t1)
 
 with tab2:
+    st.markdown("### Step 1: Provide Content")
     upl = st.file_uploader("Upload Doc/Txt")
+    
+    st.markdown("### Step 2: Attach Media (Optional)")
+    uploaded_images_t2 = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="img_t2")
+    image_placement_t2 = st.radio("Image Placement", ["Let AI Decide", "Top", "Bottom"], key="place_t2")
+    
+    st.markdown("### Step 3: Advanced Layout (Optional)")
+    style_config_t2 = render_advanced_settings("_t2")
+    
+    st.markdown("### Step 4: Generate Document")
     if upl and st.button("Format File"):
-        run_formatting("File content...", api_key, sel_style)
+        if upl.name.endswith('.txt'):
+            file_txt = upl.getvalue().decode('utf-8')
+        elif upl.name.endswith('.pdf'):
+            import pypdf
+            reader = pypdf.PdfReader(upl)
+            file_txt = "\n".join([p.extract_text() for p in reader.pages])
+        else:
+            from docx import Document
+            doc = Document(upl)
+            file_txt = "\n".join([p.text for p in doc.paragraphs])
+        run_formatting(file_txt, api_key, sel_style, style_config_t2, uploaded_images_t2, image_placement_t2)
 
 with tab3:
     st.header("Code to B.Tech Report")
@@ -82,12 +237,14 @@ with tab3:
     col1, col2 = st.columns(2)
     with col1:
         proj_zip = st.file_uploader("Project ZIP", type=["zip"], key="project_zip")
+        github_url = st.text_input("Or GitHub Repository URL", placeholder="https://github.com/user/repo")
         sample_rep = st.file_uploader(
-            "Upload Sample Report (PDF/DOCX)",
-            type=["pdf", "docx"],
-            help="Optional. Upload a sample to mimic its style.",
+            "Upload Inspiration File (PDF/DOCX/TXT)",
+            type=["pdf", "docx", "txt"],
+            help="Optional. Upload a file to mimic its style or content.",
             key="sample_report",
         )
+        rewrite_mode = st.toggle("Rewrite Mode (Match tone strictly)", value=False, help="If enabled, AI will rewrite your text to perfectly match the inspiration file.")
         test_metrics = st.file_uploader(
             "Upload Evaluation Metrics/Datasets (CSV/JSON/TXT)",
             type=["csv", "json", "txt"],
@@ -119,44 +276,272 @@ with tab3:
 
     # Dynamic Team Inputs
     if "team_count" not in st.session_state:
-        st.session_state.team_count = (
-            4  # Default to 4 as per user hint ("4 team members")
-        )
+        st.session_state.team_count = 4  # Default to 4 as per user hint
+
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = uuid.uuid4().hex
+
+    # --- Special Requests Session State ---
+    if 'special_request' not in st.session_state:
+        st.session_state.special_request = None
+    if 'request_confirmed' not in st.session_state:
+        st.session_state.request_confirmed = False
+    if 'reference_params' not in st.session_state:
+        st.session_state.reference_params = {}
+    if 'reference_extracted' not in st.session_state:
+        st.session_state.reference_extracted = False
+    if 'conflicts' not in st.session_state:
+        st.session_state.conflicts = []
+    if 'resolved_constraints' not in st.session_state:
+        st.session_state.resolved_constraints = None
+    if 'generation_state' not in st.session_state:
+        st.session_state.generation_state = 'IDLE'
 
     def add_member():
         st.session_state.team_count += 1
+        
+    def remove_member():
+        if st.session_state.team_count > 1:
+            st.session_state.team_count -= 1
 
     st.subheader("Team Members")
     team_names = []
     for i in range(st.session_state.team_count):
-        # Use columns to align removing logic if needed, but for now just simple inputs
         tn = st.text_input(f"Member {i+1} Name", key=f"s_name_{i}")
         if tn:
             team_names.append(tn)
 
-    st.button("➕ Add Team Member", on_click=add_member)
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        st.button("➕ Add Team Member", on_click=add_member)
+    with btn_col2:
+        st.button("➖ Remove Member", on_click=remove_member)
 
     # helper for context
     name = "\n".join(team_names)
 
-    if st.button("Generate Academic Report", type="primary"):
+    # --- SPECIAL REQUESTS PANEL ---
+    with st.expander("✨ Special Requests (optional)"):
+        if st.session_state.request_confirmed and st.session_state.special_request:
+            sr = st.session_state.special_request
+            st.success(f"✅ Confirmed: {sr.interpreted_summary}")
+            if sr.parameters:
+                st.json(sr.parameters)
+            if sr.custom_directives:
+                st.caption("Custom directives: " + "; ".join(sr.custom_directives))
+            if st.button("🔄 Change Request", key="sr_change"):
+                st.session_state.special_request = None
+                st.session_state.request_confirmed = False
+                st.session_state.conflicts = []
+                st.session_state.resolved_constraints = None
+                st.session_state.generation_state = 'IDLE'
+                st.rerun()
+        elif st.session_state.special_request and not st.session_state.request_confirmed:
+            sr = st.session_state.special_request
+            st.info(f"I understood: {sr.interpreted_summary}")
+            if sr.parameters:
+                st.json(sr.parameters)
+            conf_col, rej_col = st.columns(2)
+            with conf_col:
+                if st.button("✅ Confirm", key="sr_confirm"):
+                    st.session_state.request_confirmed = True
+                    st.rerun()
+            with rej_col:
+                if st.button("❌ Re-enter", key="sr_reject"):
+                    st.session_state.special_request = None
+                    st.session_state.request_confirmed = False
+                    st.rerun()
+        else:
+            sr_text = st.text_area(
+                "Describe any special requirements for your report.",
+                placeholder="e.g. 'make the whole report under 30 pages' or 'use font size 15 throughout'",
+                key="sr_input",
+            )
+            if st.button("📨 Send Request", key="sr_send"):
+                if sr_text and sr_text.strip():
+                    if api_key:
+                        try:
+                            from groq import Groq
+                            groq_client = Groq(api_key=api_key)
+                            with st.spinner("Interpreting your request..."):
+                                result = interpret_request(sr_text, groq_client)
+                            st.session_state.special_request = result
+                            st.rerun()
+                        except RequestInterpretationError:
+                            st.error("Could not parse your request — try rephrasing it more specifically.")
+                    else:
+                        st.error("🔒 Please enter your Groq API Key in the sidebar first.")
+                else:
+                    st.warning("Please type a request before sending.")
+
+    # --- Conflict Resolution UI (if state is RESOLVING) ---
+    if st.session_state.generation_state == 'RESOLVING' and st.session_state.conflicts:
+        st.markdown("---")
+        st.subheader("⚠️ Conflict Resolution Required")
+        # Restore notice if user refreshed mid-resolution
+        if any(c.resolved_value is None for c in st.session_state.conflicts):
+            st.info("You have unresolved conflicts from your previous session." if st.session_state.generation_state == 'RESOLVING' else "")
+
+        all_resolved = True
+        for i, conflict in enumerate(st.session_state.conflicts):
+            if conflict.resolved_value is not None:
+                st.success(f"✅ {conflict.parameter_label}: Resolved to {conflict.resolved_value} (source: {conflict.resolution_source})")
+                continue
+
+            all_resolved = False
+            st.warning(
+                f"Conflict on **{conflict.parameter_label}**: "
+                f"Your reference report uses **{conflict.reference_value}**, "
+                f"your special request says **{conflict.request_value}**."
+            )
+
+            option = st.radio(
+                f"How should we resolve {conflict.parameter_label}?",
+                [
+                    f"Follow reference ({conflict.reference_value})",
+                    f"Follow special request ({conflict.request_value})",
+                    "Enter a new request for this parameter",
+                ],
+                key=f"conflict_radio_{i}",
+            )
+
+            if option.startswith("Follow reference"):
+                if st.button(f"Apply reference value for {conflict.parameter_label}", key=f"apply_ref_{i}"):
+                    conflict.resolved_value = conflict.reference_value
+                    conflict.resolution_source = "reference"
+                    st.rerun()
+            elif option.startswith("Follow special request"):
+                if st.button(f"Apply request value for {conflict.parameter_label}", key=f"apply_req_{i}"):
+                    conflict.resolved_value = conflict.request_value
+                    conflict.resolution_source = "request"
+                    st.rerun()
+            else:
+                new_val_text = st.text_area(
+                    f"Enter a new value for {conflict.parameter_label} only",
+                    placeholder=f"Enter a new value for {conflict.parameter_label} only",
+                    key=f"new_val_{i}",
+                )
+                if st.button(f"Submit new value for {conflict.parameter_label}", key=f"submit_new_{i}"):
+                    if new_val_text and new_val_text.strip() and api_key:
+                        try:
+                            from groq import Groq
+                            groq_client = Groq(api_key=api_key)
+                            with st.spinner("Re-interpreting..."):
+                                new_sr = interpret_request(
+                                    new_val_text, groq_client,
+                                    focus_parameter=conflict.parameter_key
+                                )
+                            new_value = new_sr.parameters.get(conflict.parameter_key)
+                            if new_value is None:
+                                st.error("The interpreter did not return a value for this parameter. Try again.")
+                            else:
+                                # Uses cached extraction — do not call StyleAnalyzer here
+                                ref_params = st.session_state.reference_params
+                                still_conflicts = check_single_conflict(
+                                    conflict.parameter_key, new_value, ref_params
+                                )
+                                if still_conflicts:
+                                    conflict.request_value = new_value
+                                    st.warning(f"New value {new_value} still conflicts with reference ({ref_params.get(conflict.parameter_key)}). Please choose again.")
+                                    st.rerun()
+                                else:
+                                    conflict.resolved_value = new_value
+                                    conflict.resolution_source = "new_request"
+                                    st.rerun()
+                        except RequestInterpretationError:
+                            st.error("Could not parse your request — try rephrasing it more specifically.")
+
+        if all_resolved:
+            if st.button("✅ Proceed to Generation", type="primary", key="proceed_gen"):
+                st.session_state.generation_state = 'GENERATING'
+                st.rerun()
+        # Block the rest of the page while resolving
+        if not all_resolved:
+            st.stop()
+
+    # Determine if Generate button should be disabled
+    _sr_started_not_confirmed = (
+        st.session_state.special_request is not None
+        and not st.session_state.request_confirmed
+    )
+
+    if st.button(
+        "Generate Academic Report",
+        type="primary",
+        disabled=_sr_started_not_confirmed,
+    ) or st.session_state.generation_state == 'GENERATING':
         if not api_key:
-            st.error("🔒 Please enter your Groq API Key in the sidebar to proceed.")
-        elif not proj_zip:
-            st.error("📂 Please upload your Project ZIP file to generate the report.")
+            st.error(f"🔒 Please enter your {ai_provider} API Key in the sidebar to proceed.")
+        elif not proj_zip and not github_url:
+            st.error("📂 Please upload your Project ZIP file or provide a GitHub URL to generate the report.")
         elif not name.strip():
             st.error("👥 Please enter at least one Team Member name.")
         else:
             try:
+                import zipfile
+                from src.utils.github_import import download_github_repo
                 analyzer = CodeAnalyzer()
+                
+                # Load zip from github or upload
+                active_zip = proj_zip
+                if github_url and not proj_zip:
+                    with st.spinner("Downloading GitHub Repository..."):
+                        try:
+                            active_zip = download_github_repo(github_url)
+                        except Exception as e:
+                            st.error(str(e))
+                            st.stop()
+                            
                 with st.spinner("Analyzing Codebase (In-Memory)..."):
-                    summary = analyzer.analyze_zip(proj_zip)
+                    try:
+                        summary = analyzer.analyze_zip(active_zip)
+                    except zipfile.BadZipFile:
+                        st.error("❌ Invalid or corrupted ZIP file. Please ensure you uploaded a valid ZIP archive.")
+                        st.stop()
+                    except ValueError as ve:
+                        st.error(f"❌ {ve}")
+                        st.stop()
                 
                 if getattr(summary, "total_files", 0) == 0:
                     st.error("❌ The uploaded ZIP file contains zero recognizable codebase files. Please upload a valid project structure.")
                     st.stop()
                     
                 st.success(f"Analyzed {summary.total_files} files securely in memory.")
+
+                if getattr(summary, "is_truncated", False):
+                    st.warning(f"⚠️ Monorepo Detected: Analyzing {analyzer.max_files} of {summary.total_files} files, prioritised by structural relevance. Secondary files were ignored.")
+                    
+                python_count = summary.languages.get("Python", 0)
+                other_count = sum(v for k, v in summary.languages.items() if k != "Python")
+                if other_count > 0 and other_count >= python_count:
+                    st.warning("⚠️ Non-Python Codebase Detected: Deep pythonic AST parsing is limited. The system has fallen back to generalized Regex extraction.")
+                
+                # --- EXPERIMENTAL MAP-REDUCE AST PARSER ---
+                if USE_EXPERIMENTAL_FEATURES:
+                    with st.spinner("🧪 [Experimental] Running Map-Reduce AST Extraction..."):
+                        import zipfile
+                        from src.ast_analysis import extract_file_structure, build_mermaid_diagram, generate_basic_summary
+                        
+                        ast_data = []
+                        try:
+                            with zipfile.ZipFile(proj_zip, "r") as z:
+                                for info in z.infolist():
+                                    if info.filename.endswith(".py") and not info.is_dir() and "venv" not in info.filename:
+                                        content = z.read(info).decode("utf-8", errors="ignore")
+                                        ast_data.append(extract_file_structure(content, info.filename))
+                                        
+                            if ast_data:
+                                mermaid_graph = build_mermaid_diagram(ast_data)
+                                st.info("AST Extraction Complete. Generated Dependency Graph:")
+                                st.code(mermaid_graph, language="mermaid")
+                                
+                                st.info("Sample Map-Reduce File Summary (Groundwork):")
+                                st.write(generate_basic_summary(ast_data[0]))
+                                
+                        except Exception as e:
+                            st.warning(f"Experimental AST pipeline issue: {e}")
+                # ------------------------------------------
+
 
                 # Style Analysis
                 style_guide = ""
@@ -172,6 +557,43 @@ with tab3:
                         sample_rep.seek(0)
                         sample_sections = sa.extract_specific_sections(sample_rep, ext)
                     st.toast("Style & Templates Extracted!", icon="🎨")
+
+                    # --- REFERENCE EXTRACTION CACHING (Step B) ---
+                    if sample_rep and not st.session_state.reference_extracted:
+                        try:
+                            with st.spinner("Reading reference document formatting..."):
+                                sample_rep.seek(0)
+                                ref_ext = sample_rep.name.split(".")[-1].lower()
+                                if ref_ext == "docx":
+                                    visual_params = sa.analyze_visual_style(sample_rep)
+                                    st.session_state.reference_params = normalise_reference_params(visual_params)
+                                else:
+                                    st.session_state.reference_params = {}
+                                st.session_state.reference_extracted = True
+                        except Exception:
+                            st.session_state.reference_params = {}
+                            st.session_state.reference_extracted = True
+                            st.warning("Could not read formatting from your reference document — special requests will be applied without conflict checking.")
+
+                    # --- CONFLICT DETECTION (Step C) ---
+                    if (
+                        st.session_state.request_confirmed
+                        and st.session_state.special_request
+                        and st.session_state.reference_extracted
+                        and st.session_state.reference_params
+                        and st.session_state.generation_state != 'GENERATING'
+                    ):
+                        # Uses cached extraction — do not call StyleAnalyzer here
+                        ref_params = st.session_state.reference_params
+                        req_params = st.session_state.special_request.parameters
+                        conflicts = detect_conflicts(req_params, ref_params)
+                        if conflicts:
+                            st.session_state.conflicts = conflicts
+                            st.session_state.generation_state = 'RESOLVING'
+                            st.rerun()
+                        else:
+                            st.session_state.conflicts = []
+                            st.session_state.generation_state = 'GENERATING'
 
                 test_metrics_text = ""
                 if test_metrics:
@@ -194,11 +616,24 @@ with tab3:
 
                 gen = ReportGenerator(api_key)
                 
-                # API Connection Test
+                # API Connection / Captive Portal Defense
+                import requests
+                try:
+                    test_req = requests.get("https://api.groq.com", timeout=3)
+                    if 'text/html' in test_req.headers.get('Content-Type', '').lower():
+                        st.error("❌ Network Intercepted: A Captive Portal or Firewall is blocking the API request. Please log in to your network.")
+                        st.stop()
+                except (requests.exceptions.SSLError, requests.exceptions.ConnectionError):
+                    st.error("❌ Network Blocked: Cannot establish a secure connection to api.groq.com. Please check your firewall or VPN.")
+                    st.stop()
+                except requests.exceptions.RequestException:
+                    pass
+
                 try:
                     gen.model.models.list()
                 except Exception as e:
-                    if "401" in str(e) or "unauthorized" in str(e).lower():
+                    err_str = str(e).lower()
+                    if "401" in err_str or "unauthorized" in err_str:
                         st.error("❌ Invalid Groq API Key. Please verify your credentials and try again.")
                         st.stop()
                     else:
@@ -283,34 +718,73 @@ with tab3:
                         "problem_statement": context["problem_statement"],
                         "style_guide": style_guide,
                         "sample_report_provided": bool(sample_rep),
+                        "inspiration_text": inspiration_text,
+                        "rewrite_mode": rewrite_mode,
                         "sample_sections": sample_sections,
                         "has_test_files": len(summary.test_files) > 0,
                         "test_metrics_data": test_metrics_text,
                         "detailed_analysis": summary.detailed_analysis,
+                        "session_id": st.session_state.session_id,
                     }
                 )
 
-                # --- STRUCTURED GENERATION ---
-                with st.spinner(
-                    "Compiling Document Structure... (this takes 2-5 min due to API rate limits)"
-                ):
-                    compiler = DocumentCompiler(api_key=api_key)
+                # --- BUILD RESOLVED CONSTRAINTS (Step E) ---
+                resolved = None
+                if st.session_state.request_confirmed and st.session_state.special_request:
+                    sr = st.session_state.special_request
+                    p = sr.parameters
 
-                    # Callback to update UI progress bar natively
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
+                    # Start with request params, then overlay any conflict resolutions
+                    final_params = dict(p)
+                    conflict_log = list(st.session_state.conflicts) if st.session_state.conflicts else []
+                    for c in conflict_log:
+                        if c.resolved_value is not None:
+                            final_params[c.parameter_key] = c.resolved_value
 
-                    def update_progress(ratio, text):
-                        status_text.text(text)
-                        progress_bar.progress(min(ratio, 1.0))
-
-                    full_structure = compiler.compile_structure(
-                        context, summary, progress_callback=update_progress
+                    resolved = ResolvedConstraints(
+                        page_limit=final_params.get("max_pages"),
+                        font_size=final_params.get("font_size"),
+                        font_name=final_params.get("font_name"),
+                        line_spacing=final_params.get("line_spacing"),
+                        margin_inches=final_params.get("margin_inches"),
+                        min_words=final_params.get("min_words"),
+                        max_words=final_params.get("max_words"),
+                        custom_directives=sr.custom_directives,
+                        source_log=conflict_log,
                     )
+                    st.session_state.resolved_constraints = resolved
+
+                # --- STRUCTURED GENERATION ---
+                try:
+                    with st.spinner(
+                        "Compiling Document Structure... (this takes 2-5 min due to API rate limits)"
+                    ):
+                        compiler = DocumentCompiler(api_key=api_key, provider=ai_provider, model_name=selected_model)
+
+                        # Callback to update UI progress bar natively
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+
+                        def update_progress(ratio, text):
+                            status_text.text(text)
+                            progress_bar.progress(min(ratio, 1.0))
+
+                        # Pass available images to context
+                        if uploaded_images:
+                            context["available_images"] = [img.name for img in uploaded_images]
+
+                        full_structure = compiler.compile_structure(
+                            context, summary, progress_callback=update_progress,
+                            constraints=resolved,
+                        )
+                except RuntimeError as re_err:
+                    st.error(f"❌ Document Validation Aborted: {str(re_err)}")
+                    st.warning("Your project footprint is too small for the strict 6-chapter university schema. Please enable the experimental Map-Reduce V2 pipeline.")
+                    st.stop()
 
                 # --- 4. STRUCTURE VALIDATION GATE ---
                 with st.spinner("Validating structural integrity and auto-healing..."):
-                    validator = DocumentValidator()
+                    validator = DocumentValidator(constraints=resolved)
                     try:
                         healed_structure = validator.validate_and_heal(full_structure)
                     except Exception as ve:
@@ -322,12 +796,70 @@ with tab3:
 
                 # --- 5. RENDER ---
                 st.success("✅ Rendering DOCX...")
+                
+                # Handle Image AST Injection for Tab 3
+                if uploaded_images:
+                    img_nodes = [{"type": "image", "content": img.getvalue(), "filename": img.name} for img in uploaded_images]
+                    
+                    if image_placement == "Top":
+                        healed_structure = img_nodes + healed_structure
+                    elif image_placement == "Bottom":
+                        healed_structure = healed_structure + img_nodes
+                    else:
+                        # Let AI Decide logic
+                        new_data = []
+                        for block in healed_structure:
+                            if block.get("type") == "image_insertion":
+                                fname = block.get("filename")
+                                matched = next((node for node in img_nodes if node["filename"] == fname), None)
+                                if matched:
+                                    new_data.append(matched)
+                            else:
+                                new_data.append(block)
+                        
+                        # Also append any leftover images that the AI missed (optional, but good for UX)
+                        used_fnames = [b.get("filename") for b in new_data if b.get("type") == "image"]
+                        for node in img_nodes:
+                            if node["filename"] not in used_fnames:
+                                new_data.append(node)
+                                
+                        healed_structure = new_data
+
                 buf = io.BytesIO()
-                generate_report(healed_structure, buf, style_name=sel_style)
+                generate_report(healed_structure, buf, style_name=sel_style, style_config=style_config)
+                
+                # Persist output locally to protect against Wi-Fi drops mid-download
+                os.makedirs("output", exist_ok=True)
+                session_id = st.session_state.session_id
+                backup_path = os.path.join("output", f"Report_Backup_{session_id}.docx")
+                with open(backup_path, "wb") as f:
+                    f.write(buf.getvalue())
+                    
+                # Auto-cleanup stale backups (>2 hours old)
+                import time
+                current_time = time.time()
+                try:
+                    for filename in os.listdir("output"):
+                        if filename.startswith("Report_Backup_") and filename.endswith(".docx"):
+                            file_path = os.path.join("output", filename)
+                            if os.path.isfile(file_path):
+                                if current_time - os.path.getmtime(file_path) > 7200:
+                                    try:
+                                        os.remove(file_path)
+                                    except Exception:
+                                        pass
+                except Exception:
+                    pass
+                
                 st.download_button(
                     "📥 Download Final Report", buf.getvalue(), "Academic_Report.docx"
                 )
 
+                # Reset generation state after successful completion
+                st.session_state.generation_state = 'IDLE'
+
             except Exception as e:
+                st.session_state.generation_state = 'IDLE'
                 st.error(f"Failure: {e}")
                 st.text(traceback.format_exc())
+
