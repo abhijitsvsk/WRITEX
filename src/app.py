@@ -132,7 +132,8 @@ with st.sidebar:
         st.markdown("**Headings**")
         adv_h_font = st.selectbox("Heading Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("h_font", "Times New Roman")))
         adv_h_size = st.number_input("Heading Size (pt)", value=preset.get("h_size", 14.0), step=1.0)
-        adv_h_align = st.selectbox("Heading Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("h_align", "Center")))
+        adv_chap_align = st.selectbox("Chapter/Title Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("chap_align", "Center")))
+        adv_subh_align = st.selectbox("Sub-Heading Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("subh_align", "Left")))
         adv_h_bold = st.checkbox("Heading Bold", value=preset.get("h_bold", True))
         
         st.markdown("**Content & Code**")
@@ -152,7 +153,7 @@ with st.sidebar:
             with open("style_preset.json", "w") as pf:
                 json.dump({
                     "margin": adv_margin, "h_font": adv_h_font, "h_size": adv_h_size, 
-                    "h_align": adv_h_align, "h_bold": adv_h_bold, "c_font": adv_c_font,
+                    "chap_align": adv_chap_align, "subh_align": adv_subh_align, "h_bold": adv_h_bold, "c_font": adv_c_font,
                     "c_size": adv_c_size, "c_align": adv_c_align, "spacing": adv_spacing,
                     "space_before": adv_space_before, "space_after": adv_space_after,
                     "code_lang": adv_code_lang, "continuous": adv_continuous
@@ -166,7 +167,8 @@ with st.sidebar:
         heading_font=adv_h_font,
         heading_size_pt=adv_h_size,
         heading_bold=adv_h_bold,
-        heading_alignment=align_map[adv_h_align],
+        chapter_alignment=align_map[adv_chap_align],
+        subheading_alignment=align_map[adv_subh_align],
         content_font=adv_c_font,
         content_size_pt=adv_c_size,
         content_alignment=align_map[adv_c_align],

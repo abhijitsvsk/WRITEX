@@ -18,7 +18,8 @@ class StyleConfig:
     heading_font: str = "Times New Roman"
     heading_size_pt: float = 14.0
     heading_bold: bool = True
-    heading_alignment: int = WD_ALIGN_PARAGRAPH.CENTER
+    chapter_alignment: int = WD_ALIGN_PARAGRAPH.CENTER
+    subheading_alignment: int = WD_ALIGN_PARAGRAPH.LEFT
     
     # Content
     content_font: str = "Times New Roman"
@@ -294,7 +295,8 @@ def generate_report(
             heading_font=t_cfg["font"],
             heading_size_pt=16.0,
             heading_bold=True,
-            heading_alignment=WD_ALIGN_PARAGRAPH.LEFT,
+            chapter_alignment=WD_ALIGN_PARAGRAPH.CENTER,
+            subheading_alignment=WD_ALIGN_PARAGRAPH.LEFT,
             content_font=t_cfg["font"],
             content_size_pt=t_cfg["size"],
             content_alignment=WD_ALIGN_PARAGRAPH.LEFT,
@@ -424,7 +426,7 @@ def generate_report(
 
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
-            p.alignment = style_config.heading_alignment
+            p.alignment = style_config.chapter_alignment
 
             # Use Title Case for Chapter Titles
             run = p.add_run(f"Chapter {counters['chapter']} {text.title()}")
@@ -443,7 +445,7 @@ def generate_report(
             prefix = f"{counters['chapter']}.{counters['sub']}"
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 2"]
-            p.alignment = style_config.heading_alignment
+            p.alignment = style_config.chapter_alignment
 
             run = p.add_run(f"{prefix} {text.title()}")
             run.bold = style_config.heading_bold
@@ -461,7 +463,7 @@ def generate_report(
             prefix = f"{counters['chapter']}.{counters['sub']}.{counters['subsub']}"
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 3"]
-            p.alignment = style_config.heading_alignment
+            p.alignment = style_config.subheading_alignment
 
             run = p.add_run(f"{prefix} {text.title()}")
             run.bold = style_config.heading_bold
@@ -512,7 +514,7 @@ def generate_report(
                 doc.add_page_break()
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
-            p.alignment = style_config.heading_alignment
+            p.alignment = style_config.subheading_alignment
             run = p.add_run(text.title())  # Changed from UPPER to title case
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
