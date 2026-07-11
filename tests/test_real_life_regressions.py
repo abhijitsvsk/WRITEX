@@ -4,7 +4,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 
 from src.analysis.style_analyzer import StyleAnalyzer
-from src.file_formatting.formatting import generate_report
+from src.file_formatting.formatting import generate_report, StyleConfig
 from src.models.constraints import ResolvedConstraints
 from src.validation.validator import DocumentValidator
 
@@ -26,13 +26,17 @@ def test_generate_report_applies_custom_formatting_options():
     output = io.BytesIO()
     structure = [{"type": "paragraph", "text": "Body text with custom style."}]
 
+    config = StyleConfig(
+        content_font="Arial",
+        content_size_pt=10.5,
+        line_spacing=2.0,
+        margin_inches=0.75
+    )
+
     generate_report(
         structure,
         output,
-        custom_font="Arial",
-        custom_size=10.5,
-        custom_spacing=2.0,
-        custom_margin=0.75,
+        style_config=config
     )
 
     output.seek(0)

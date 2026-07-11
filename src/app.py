@@ -31,7 +31,8 @@ if str(root_path) not in sys.path:
 USE_EXPERIMENTAL_FEATURES = False
 
 # --- Imports ---
-from src.file_formatting.formatting import generate_report
+from src.file_formatting.formatting import generate_report, StyleConfig
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from src.analysis.style_analyzer import StyleAnalyzer
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.ai.report_generator import ReportGenerator
@@ -84,6 +85,62 @@ with st.sidebar:
     style_opts = ["Standard", "IEEE", "APA", "Thesis", "Minimal"]
     sel_style = st.selectbox("Style", style_opts)
     
+    with st.expander("Advanced Custom Formatting"):
+        st.caption("Override template with granular rules")
+        # Load preset if exists
+        import json
+        preset = {}
+        if os.path.exists("style_preset.json"):
+            try:
+                with open("style_preset.json", "r") as pf:
+                    preset = json.load(pf)
+            except:
+                pass
+                
+        adv_margin = st.number_input("Margin (Inches)", value=preset.get("margin", 1.0), step=0.25)
+        
+        st.markdown("**Headings**")
+        adv_h_font = st.selectbox("Heading Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("h_font", "Times New Roman")))
+        adv_h_size = st.number_input("Heading Size (pt)", value=preset.get("h_size", 14.0), step=1.0)
+        adv_h_align = st.selectbox("Heading Alignment", ["Left", "Center", "Right"], index=["Left", "Center", "Right"].index(preset.get("h_align", "Center")))
+        adv_h_bold = st.checkbox("Heading Bold", value=preset.get("h_bold", True))
+        
+        st.markdown("**Content & Code**")
+        adv_c_font = st.selectbox("Content Font", ["Times New Roman", "Arial", "Calibri", "Courier New"], index=["Times New Roman", "Arial", "Calibri", "Courier New"].index(preset.get("c_font", "Times New Roman")))
+        adv_c_size = st.number_input("Content Size (pt)", value=preset.get("c_size", 12.0), step=1.0)
+        adv_c_align = st.selectbox("Content Alignment", ["Left", "Center", "Right", "Justify"], index=["Left", "Center", "Right", "Justify"].index(preset.get("c_align", "Justify")))
+        
+        st.markdown("**Spacing**")
+        adv_spacing = st.number_input("Line Spacing", value=preset.get("spacing", 1.5), step=0.25)
+        adv_space_before = st.number_input("Space Before (pt)", value=preset.get("space_before", 0.0), step=1.0)
+        adv_space_after = st.number_input("Space After (pt)", value=preset.get("space_after", 0.0), step=1.0)
+        
+        if st.button("💾 Save as Preset"):
+            with open("style_preset.json", "w") as pf:
+                json.dump({
+                    "margin": adv_margin, "h_font": adv_h_font, "h_size": adv_h_size, 
+                    "h_align": adv_h_align, "h_bold": adv_h_bold, "c_font": adv_c_font,
+                    "c_size": adv_c_size, "c_align": adv_c_align, "spacing": adv_spacing,
+                    "space_before": adv_space_before, "space_after": adv_space_after
+                }, pf)
+            st.success("Preset Saved!")
+
+    align_map = {"Left": WD_ALIGN_PARAGRAPH.LEFT, "Center": WD_ALIGN_PARAGRAPH.CENTER, "Right": WD_ALIGN_PARAGRAPH.RIGHT, "Justify": WD_ALIGN_PARAGRAPH.JUSTIFY}
+    
+    style_config = StyleConfig(
+        margin_inches=adv_margin,
+        heading_font=adv_h_font,
+        heading_size_pt=adv_h_size,
+        heading_bold=adv_h_bold,
+        heading_alignment=align_map[adv_h_align],
+        content_font=adv_c_font,
+        content_size_pt=adv_c_size,
+        content_alignment=align_map[adv_c_align],
+        line_spacing=adv_spacing,
+        space_before_pt=adv_space_before,
+        space_after_pt=adv_space_after
+    )
+    
     st.markdown("---")
     if st.button("🧹 Clear Session State (Start Fresh)"):
         st.session_state.clear()
@@ -110,11 +167,12 @@ with tab3:
         proj_zip = st.file_uploader("Project ZIP", type=["zip"], key="project_zip")
         github_url = st.text_input("Or GitHub Repository URL", placeholder="https://github.com/user/repo")
         sample_rep = st.file_uploader(
-            "Upload Sample Report (PDF/DOCX)",
-            type=["pdf", "docx"],
-            help="Optional. Upload a sample to mimic its style.",
+            "Upload Inspiration File (PDF/DOCX/TXT)",
+            type=["pdf", "docx", "txt"],
+            help="Optional. Upload a file to mimic its style or content.",
             key="sample_report",
         )
+        rewrite_mode = st.toggle("Rewrite Mode (Match tone strictly)", value=False, help="If enabled, AI will rewrite your text to perfectly match the inspiration file.")
         test_metrics = st.file_uploader(
             "Upload Evaluation Metrics/Datasets (CSV/JSON/TXT)",
             type=["csv", "json", "txt"],
@@ -588,6 +646,8 @@ with tab3:
                         "problem_statement": context["problem_statement"],
                         "style_guide": style_guide,
                         "sample_report_provided": bool(sample_rep),
+                        "inspiration_text": inspiration_text,
+                        "rewrite_mode": rewrite_mode,
                         "sample_sections": sample_sections,
                         "has_test_files": len(summary.test_files) > 0,
                         "test_metrics_data": test_metrics_text,
@@ -661,7 +721,7 @@ with tab3:
                 # --- 5. RENDER ---
                 st.success("✅ Rendering DOCX...")
                 buf = io.BytesIO()
-                generate_report(healed_structure, buf, style_name=sel_style)
+                generate_report(healed_structure, buf, style_name=sel_style, style_config=style_config)
                 
                 # Persist output locally to protect against Wi-Fi drops mid-download
                 os.makedirs("output", exist_ok=True)

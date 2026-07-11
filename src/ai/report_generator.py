@@ -217,6 +217,16 @@ class ReportGenerator:
         elif chapter_title == "Implementation":
             code_rule = f"5. **MANDATORY CORE EXTRACTION**: Because this is the Implementation chapter, you MUST output 3 to 5 codebase snippets explaining the core logic. To extract code, output a block object of type 'code_extraction' with the 'target_name' key. YOU MUST ONLY pick from these valid targets: {targets_str}."
 
+        inspiration_text = user_context.get("inspiration_text", "")
+        rewrite_mode = user_context.get("rewrite_mode", False)
+        
+        inspiration_rule = ""
+        if inspiration_text:
+            if rewrite_mode:
+                inspiration_rule = f"8. **INSPIRATION STRICT REWRITE (CRITICAL)**: You have been provided with an Inspiration File. You MUST rewrite the content for this subsection to STRICTLY match the exact tone, style, and vocabulary of this Inspiration File context:\n---\n{inspiration_text[:4000]}\n---"
+            else:
+                inspiration_rule = f"8. **INSPIRATION FORMATTING**: You have been provided with an Inspiration File. Maintain your original narrative structure, but adopt the general tone of this Inspiration File context:\n---\n{inspiration_text[:4000]}\n---"
+
         prompt = f"""
         [PROMPT_TEMPLATE_VERSION: 1.0.0 (Production Locked)]
         You are an expert Academic Editor and Strategic System Architect writing a formal B.Tech Project Report.
@@ -253,6 +263,7 @@ class ReportGenerator:
         {code_rule}
         {figure_rule}
         7. **STRICT LENGTH**: The combined text of all paragraphs should be roughly 300-350 words. Do not trail off or include meta-commentary.
+        {inspiration_rule}
         """
 
         result = generate_with_retry(self.model, prompt, response_format={"type": "json_object"})
