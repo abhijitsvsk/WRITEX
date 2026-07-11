@@ -10,3 +10,6 @@ pytest
 flake8
 mypy
 bandit
+fastapi
+uvicorn
+python-multipart
