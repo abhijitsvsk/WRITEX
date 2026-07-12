@@ -51,9 +51,9 @@ def parse_style_config(style_json_str: str) -> StyleConfig:
             space_before_pt=cfg_dict.get("space_before_pt", 0.0),
             space_after_pt=cfg_dict.get("space_after_pt", 0.0),
             code_language=cfg_dict.get("code_language", "Auto"),
-            highlight_code=cfg_dict.get("highlight_code", True),
+            highlight_code=cfg_dict.get("highlight_code", False),
             continuous_sections=cfg_dict.get("continuous_sections", False),
-            auto_numbering=cfg_dict.get("auto_numbering", True)
+            auto_numbering=cfg_dict.get("auto_numbering", False)
         )
     except Exception as e:
         print(f"Error parsing style config: {e}")

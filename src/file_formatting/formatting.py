@@ -31,9 +31,9 @@ class StyleConfig:
     
     # Advanced logic
     code_language: str = "Auto"
-    highlight_code: bool = True
+    highlight_code: bool = False
     continuous_sections: bool = False
-    auto_numbering: bool = True
+    auto_numbering: bool = False
 
 def _postbuild_estimate_pages(doc):
     """
