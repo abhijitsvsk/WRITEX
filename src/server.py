@@ -125,6 +125,10 @@ def process_formatting(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "version": "2.1.0", "features": ["highlight_code", "auto_numbering", "no_section_break"]}
+
 @app.post("/api/format_text")
 def api_format_text(
     text: str = Form(...),
