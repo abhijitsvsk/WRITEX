@@ -411,16 +411,11 @@ def generate_report(
             counters["subsub"] = 0
             counters["figure"] = 0
 
-            # First Chapter gets a new section (for layout), continuous page numbering
+            # First Chapter gets a new section (for layout)
             if counters["chapter"] == 1:
-                # Add section break for layout separation
-                if style_config.continuous_sections:
-                    new_section = doc.add_section(WD_SECTION.CONTINUOUS)
-                else:
+                if not style_config.continuous_sections:
                     new_section = doc.add_section(WD_SECTION.NEW_PAGE)
-                
-                # Unlink footer from front matter
-                new_section.footer.is_linked_to_previous = False
+                    new_section.footer.is_linked_to_previous = False
             else:
                 if not style_config.continuous_sections:
                     doc.add_page_break()
@@ -429,11 +424,18 @@ def generate_report(
             p.style = doc.styles["Heading 1"]
             p.alignment = style_config.chapter_alignment
 
+            # Strip LLM-hallucinated numbering if auto_numbering is off
+            clean_text = text.title()
+            if not style_config.auto_numbering:
+                import re
+                clean_text = re.sub(r"^[\d\.]+\s*", "", clean_text)
+
             # Use Title Case for Chapter Titles
             if style_config.auto_numbering:
-                run = p.add_run(f"Chapter {counters['chapter']} {text.title()}")
+                run = p.add_run(f"Chapter {counters['chapter']} {clean_text}")
             else:
-                run = p.add_run(text.title())
+                run = p.add_run(clean_text)
+            
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(style_config.heading_size_pt)
@@ -450,7 +452,12 @@ def generate_report(
             p.style = doc.styles["Heading 1"]
             p.alignment = style_config.chapter_alignment
 
-            run = p.add_run(text.title())
+            clean_text = text.title()
+            if not style_config.auto_numbering:
+                import re
+                clean_text = re.sub(r"^[\d\.]+\s*", "", clean_text)
+
+            run = p.add_run(clean_text)
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(style_config.heading_size_pt)
@@ -467,11 +474,16 @@ def generate_report(
             p.style = doc.styles["Heading 2"]
             p.alignment = style_config.chapter_alignment
 
+            clean_text = text.title()
+            if not style_config.auto_numbering:
+                import re
+                clean_text = re.sub(r"^[\d\.]+\s*", "", clean_text)
+
             if counters['chapter'] > 0 and style_config.auto_numbering:
                 prefix = f"{counters['chapter']}.{counters['sub']} "
-                run = p.add_run(f"{prefix}{text.title()}")
+                run = p.add_run(f"{prefix}{clean_text}")
             else:
-                run = p.add_run(text.title())
+                run = p.add_run(clean_text)
 
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
@@ -489,11 +501,16 @@ def generate_report(
             p.style = doc.styles["Heading 3"]
             p.alignment = style_config.subheading_alignment
 
+            clean_text = text.title()
+            if not style_config.auto_numbering:
+                import re
+                clean_text = re.sub(r"^[\d\.]+\s*", "", clean_text)
+
             if counters['chapter'] > 0 and style_config.auto_numbering:
                 prefix = f"{counters['chapter']}.{counters['sub']}.{counters['subsub']} "
-                run = p.add_run(f"{prefix}{text.title()}")
+                run = p.add_run(f"{prefix}{clean_text}")
             else:
-                run = p.add_run(text.title())
+                run = p.add_run(clean_text)
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(max(10, style_config.heading_size_pt - 4))
