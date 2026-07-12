@@ -29,10 +29,9 @@ class StyleConfig:
     space_before_pt: float = 0.0
     space_after_pt: float = 0.0
     
-    # Code
+    # Advanced logic
     code_language: str = "Auto"
-    
-    # Layout
+    highlight_code: bool = True
     continuous_sections: bool = False
     auto_numbering: bool = True
 
@@ -622,85 +621,79 @@ def generate_report(
         elif itype == "page_break":
             doc.add_page_break()
 
-        # 8. CODE BLOCKS (Styled with Monokai Dark by default)
-        elif itype in ["code_block", "code"]:
+        # 7. CODE BLOCK
+        elif itype == "code":
+            try:
+                from pygments.lexers import get_lexer_by_name, guess_lexer
+                from pygments.styles import get_style_by_name
+                
+                # Setup table for code block
+                table = doc.add_table(rows=1, cols=1)
+                table.autofit = True
+                
+                # Apply shading
+                cell = table.cell(0, 0)
+                tcPr = cell._element.get_or_add_tcPr()
+                shading = OxmlElement('w:shd')
+                shading.set(qn('w:val'), 'clear')
+                shading.set(qn('w:color'), 'auto')
+                shading.set(qn('w:fill'), 'F5F5F5')
+                tcPr.append(shading)
+                
+                p = cell.paragraphs[0]
+                p.paragraph_format.space_before = Pt(6)
+                p.paragraph_format.space_after = Pt(6)
 
-            # Insert code in a 1x1 table for a clean padded box
-            table = doc.add_table(rows=1, cols=1)
-            table.autofit = True
-            cell = table.cell(0, 0)
-            
-            # Set shading color to Dark Gray for a premium code block look (or light gray)
-            tcPr = cell._element.get_or_add_tcPr()
-            shd = OxmlElement("w:shd")
-            shd.set(ns.qn("w:val"), "clear")
-            shd.set(ns.qn("w:color"), "auto")
-            
-            if style_config.code_language == "None":
-                shd.set(ns.qn("w:fill"), "F5F5F5") # Light gray background for printing
-            else:
-                shd.set(ns.qn("w:fill"), "282C34") # Monokai dark background
-            tcPr.append(shd)
-
-            p = cell.paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            p.paragraph_format.space_before = Pt(6)
-            p.paragraph_format.space_after = Pt(6)
-            p.paragraph_format.line_spacing = 1.15
-
-            # Syntax highlighting using Pygments (if available, else fallback)
-            if style_config.code_language == "None":
-                run = p.add_run(text)
-                run.font.name = "Courier New"
-                run.font.size = Pt(style_config.content_size_pt)
-                run.font.color.rgb = RGBColor(0, 0, 0) # Black text for light background
-            else:
-                try:
-                    from pygments import lex
-                    from pygments.lexers import get_lexer_for_filename, guess_lexer
-                    from pygments.styles import get_style_by_name
+                if style_config.highlight_code:
+                    style = get_style_by_name("default")
                     
-                    try:
-                        if style_config.code_language and style_config.code_language != "Auto":
-                            from pygments.lexers import get_lexer_by_name
-                            try:
-                                lexer = get_lexer_by_name(style_config.code_language.lower())
-                            except Exception:
-                                lexer = guess_lexer(text)
-                        else:
+                    if style_config.code_language.lower() != "auto":
+                        try:
+                            lexer = get_lexer_by_name(style_config.code_language.lower(), stripall=True)
+                        except:
                             lexer = guess_lexer(text)
-                    except Exception:
-                        from pygments.lexers import PythonLexer
-                        lexer = PythonLexer()
+                    else:
+                        lexer = guess_lexer(text)
                         
-                    style = get_style_by_name("monokai")
+                    tokens = list(lexer.get_tokens(text))
                     
-                    for token, content in lex(text, lexer):
-                        if not content:
-                            continue
-                        run = p.add_run(content)
+                    # Convert pygments color to WD color
+                    def hex_to_rgb(hex_str):
+                        if not hex_str: return (0, 0, 0)
+                        hex_str = hex_str.lstrip('#')
+                        if len(hex_str) == 3:
+                            hex_str = ''.join([c*2 for c in hex_str])
+                        return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+                        
+                    for token_type, value in tokens:
+                        if not value: continue
+                        
+                        run = p.add_run(value)
                         run.font.name = "Courier New"
-                        run.font.size = Pt(style_config.content_size_pt)
+                        run.font.size = Pt(10)
                         
-                        # Apply color from pygments style
-                        if token in style.styles:
-                            color_hex = style.styles[token]
-                            if color_hex and color_hex.startswith("#"):
-                                color_hex = color_hex[1:]
-                                if len(color_hex) == 6:
-                                    r, g, b = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
-                                    run.font.color.rgb = RGBColor(r, g, b)
-                            elif "bold" in style.styles[token]:
-                                run.bold = True
-                        
-                        if not run.font.color.rgb:
-                            run.font.color.rgb = RGBColor(248, 248, 242)
-                except ImportError:
-                    # Fallback to plain text
+                        # Find closest style
+                        t_style = style.style_for_token(token_type)
+                        if t_style['color']:
+                            r, g, b = hex_to_rgb(t_style['color'])
+                            run.font.color.rgb = RGBColor(r, g, b)
+                        if t_style['bold']:
+                            run.bold = True
+                        if t_style['italic']:
+                            run.italic = True
+                else:
+                    # Highlight Code is OFF - render as standard monospace without colors
                     run = p.add_run(text)
                     run.font.name = "Courier New"
-                    run.font.size = Pt(style_config.content_size_pt)
-                    run.font.color.rgb = RGBColor(248, 248, 242)
+                    run.font.size = Pt(10)
+                    run.font.color.rgb = RGBColor(0, 0, 0)
+
+            except Exception as e:
+                # Fallback to plain formatting
+                p = doc.add_paragraph(text)
+                for run in p.runs:
+                    run.font.name = "Courier New"
+                    run.font.size = Pt(10)
 
         # 9. TERMINAL OUTPUT (Tabular data, console logs)
         elif itype == "terminal_output":

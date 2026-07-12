@@ -158,6 +158,7 @@ export default function Home() {
   const [codeLang, setCodeLang] = useState("Auto");
   const [images, setImages] = useState<File[]>([]);
   const [imagePlacement, setImagePlacement] = useState("Let AI Decide");
+  const [highlightCode, setHighlightCode] = useState(true);
   const [autoNumbering, setAutoNumbering] = useState(false);
   const [continuousSections, setContinuousSections] = useState(true);
 
@@ -198,7 +199,7 @@ export default function Home() {
         heading_bold: true, chapter_alignment: cAlign, subheading_alignment: cAlign,
         content_font: "Times New Roman", content_size_pt: 12, content_alignment: cAlign,
         line_spacing: +spacing, space_before_pt: 0, space_after_pt: 0,
-        code_language: codeLang, continuous_sections: continuousSections,
+        code_language: codeLang, highlight_code: highlightCode, continuous_sections: continuousSections,
         auto_numbering: autoNumbering
       }));
       fd.append("image_placement", imagePlacement);
@@ -518,7 +519,7 @@ export default function Home() {
                 </div>
                 <AdvancedLayout {...{
                   hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,
-                  cAlign,setCAlign,codeLang,setCodeLang,
+                  cAlign,setCAlign,codeLang,setCodeLang,highlightCode,setHighlightCode,
                   autoNumbering,setAutoNumbering,continuousSections,setContinuousSections
                 }} />
                 <GenerateButton loading={loading} label="Generate Document" onClick={() => handleGenerate()} />
@@ -531,7 +532,7 @@ export default function Home() {
                 <Dropzone file={file} onFile={setFile} accept=".txt,.pdf,.docx" label="Drop your document (PDF, DOCX, TXT)" />
                 <AdvancedLayout {...{
                   hFont,setHFont,hSize,setHSize,spacing,setSpacing,margin,setMargin,
-                  cAlign,setCAlign,codeLang,setCodeLang,
+                  cAlign,setCAlign,codeLang,setCodeLang,highlightCode,setHighlightCode,
                   autoNumbering,setAutoNumbering,continuousSections,setContinuousSections
                 }} />
                 <GenerateButton loading={loading} label="Format Document" onClick={() => handleGenerate()} />
@@ -915,8 +916,8 @@ function GenerateButton({ loading, label, onClick }: { loading: boolean; label: 
 
 const AdvancedLayout = ({
   hFont, setHFont, hSize, setHSize, spacing, setSpacing, margin, setMargin,
-  cAlign, setCAlign, codeLang, setCodeLang, autoNumbering, setAutoNumbering,
-  continuousSections, setContinuousSections
+  cAlign, setCAlign, codeLang, setCodeLang, highlightCode, setHighlightCode,
+  autoNumbering, setAutoNumbering, continuousSections, setContinuousSections
 }: any) => {
   return (
     <div style={{ background: C.bgElevated, border: `1px solid ${C.borderSubtle}`, borderRadius: 10, overflow: "hidden" }}>
@@ -987,6 +988,23 @@ const AdvancedLayout = ({
                 border: `1px solid ${continuousSections ? C.accent : C.borderDef}`,
                 borderRadius: 8, color: continuousSections ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
               }}>Continuous</button>
+            </div>
+          </div>
+        )}
+        {highlightCode !== undefined && (
+          <div>
+            <Label>Highlight Code</Label>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => setHighlightCode(true)} style={{
+                flex: 1, height: 36, background: highlightCode ? C.accentDim : "transparent",
+                border: `1px solid ${highlightCode ? C.accent : C.borderDef}`,
+                borderRadius: 8, color: highlightCode ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
+              }}>On</button>
+              <button onClick={() => setHighlightCode(false)} style={{
+                flex: 1, height: 36, background: !highlightCode ? C.accentDim : "transparent",
+                border: `1px solid ${!highlightCode ? C.accent : C.borderDef}`,
+                borderRadius: 8, color: !highlightCode ? C.textPri : C.textSec, cursor: "pointer", fontSize: 12, fontWeight: 500
+              }}>Off</button>
             </div>
           </div>
         )}
