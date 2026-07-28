@@ -4,6 +4,22 @@ import random
 import logging
 from src.ai.provider_client import GROQ_DEFAULT_MODEL
 
+# System-level persona injected into every LLM call.
+# A strong system prompt is the single most effective way to prevent hallucination
+# and enforce academic tone across all generated sections.
+ACADEMIC_SYSTEM_PROMPT = (
+    "You are a strict Academic Editor specialising in B.Tech Computer Science project reports. "
+    "You write in a formal, third-person academic register. "
+    "CRITICAL RULES you must ALWAYS follow:\n"
+    "1. Ground ALL content in the project metadata provided. Never invent data, metrics, datasets, "
+    "author names, library names, or paper references that are not in the supplied context.\n"
+    "2. Never mention raw Python filenames (e.g. formatting.py). Use abstract module names "
+    "(e.g. 'The Formatting Engine', 'The Parsing Module').\n"
+    "3. Each section must read as a uniquely crafted academic paragraph. "
+    "Never reuse the same opening sentence across sections.\n"
+    "4. Do not output meta-commentary, apologies, or AI disclaimers. Output ONLY the requested content."
+)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,11 +64,13 @@ def generate_with_retry(model, prompt, config=None, max_retries=10, base_delay=5
                 target_model = getattr(model, "default_model", TARGET_MODEL_VERSION)
                 kwargs = {
                     "model": target_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.0,
-                    "max_tokens": 2048,
-                    "top_p": 0.05,
-                    "seed": 42,
+                    "messages": [
+                        {"role": "system", "content": ACADEMIC_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 4096,
+                    "top_p": 0.9,
                     "stop": None,
                     "stream": False,
                 }

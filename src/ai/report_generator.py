@@ -481,10 +481,6 @@ class ReportGenerator:
         Project Metadata (JSON):
         {json.dumps(sliced_summary, indent=2)}
         
-        Evaluation Metrics (Enforced Deterministic Base):
-        - Dataset: 50 unstructured academic drafts
-        - Performance Metrics: Parsing Accuracy, Formatting Consistency Score, Execution Latency vs Manual Typesetting
-        
         User Context:
         Title: {user_context.get('title')}
         Problem: {user_context.get('problem_statement')}
@@ -492,13 +488,14 @@ class ReportGenerator:
         
         CRITICAL NARRATIVE CONSTRAINTS (HARD RULES):
         1. **NO RAW CODE OR FILE NAMES**: Absolutely DO NOT mention specific Python filenames like `formatting.py` or `.py` files at all. DO NOT dump raw code functions. Speak entirely in abstract system-level terminology (e.g., "The Preprocessing Module", "The Data Transformation Layer", etc.).
-        2. **ACADEMIC STORYTELLING**: Synthesize a cohesive academic narrative. Discuss the theoretical dataset defined above, the ETL pipeline architecture, system latency, and rule-based evaluation metrics. Do not invent ML metrics like F1 or Recall. Ensure you portray it as a deterministic Intelligent NLP-Assisted pipeline.
+        2. **ACADEMIC STORYTELLING**: Synthesize a cohesive academic narrative grounded ONLY in the project metadata above. Discuss the system architecture, pipeline design, and engineering decisions. Do NOT invent ML metrics (F1, Recall, Precision) unless they appear in the project metadata.
         3. **INSTITUTIONAL OUTCOMES (PEO/PO/PSO/CO)**: If this section is PEO, PO, PSO, or CO, DO NOT refer to specific code, modules, or features of the project. Speak exclusively about high-level B.Tech Educational Outcomes (e.g., "Ability to design complex systems", "Demonstrating engineering life-long learning").
         4. **NO FICTIONAL REFERENCES**: DO NOT hallucinate fake citations, author names (e.g., J. Smith), or fictional textbook references under any circumstances.
         5. **NO HEADINGS**: Write ONLY pure academic paragraphs.
         6. **STRICT LENGTH**: Exactly 300-350 words. Do not trail off or write meta-text.
         """
         return base_prompt
+
 
     def _slice_context(self, chapter_title: str, project_summary: Dict) -> Dict:
         # Helper to slice context based on chapter

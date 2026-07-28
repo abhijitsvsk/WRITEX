@@ -158,7 +158,7 @@ class DocumentCompiler:
 
         # 2. Certificate & Acknowledgement
         for section in ["Certificate", "Acknowledgement"]:
-            full_structure.append({"type": "section_header", "text": section.upper()})
+            full_structure.append({"type": "section_header", "text": section})
             template_text = self.generator.fill_template(section, context)
             full_structure.append({"type": "paragraph", "text": template_text})
 
@@ -309,7 +309,7 @@ class DocumentCompiler:
 
 
         # 6. References (Strictly follows chapters)
-        full_structure.append({"type": "section_header", "text": "REFERENCES"})
+        full_structure.append({"type": "section_header", "text": "References"})
         ref_text = self._generate_factual_doc_references(context, summary)
         full_structure.append({"type": "paragraph", "text": ref_text})
 
