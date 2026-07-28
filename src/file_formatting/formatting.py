@@ -330,6 +330,25 @@ def generate_report(
         except KeyError:
             doc.styles.add_style(s_name, WD_STYLE_TYPE.PARAGRAPH)
 
+    def _kill_numbering(paragraph):
+        """
+        ROOT CAUSE FIX: Strips the Word XML <w:numPr> element from a paragraph's
+        <w:pPr> block. This is the ONLY way to disable Word's built-in automatic
+        heading numbering.
+
+        The auto_numbering flag was previously only stripping digits from the text
+        string (via regex), but Word's heading styles carry a <w:numPr> definition
+        in the document's numbering.xml that makes Word render "1.", "1.1.", "1.1.1."
+        automatically — completely independently of what text is in the run.
+        Removing <w:numPr> at the XML level is the correct and permanent fix.
+        """
+        pPr = paragraph._p.get_or_add_pPr()
+        # Find and remove any existing <w:numPr> element
+        numPr = pPr.find(qn("w:numPr"))
+        if numPr is not None:
+            pPr.remove(numPr)
+
+
     # --- Hierarchy Counters ---
     # These strictly track where we are in the document
     counters = {"chapter": 0, "sub": 0, "subsub": 0, "figure": 0}
@@ -377,6 +396,7 @@ def generate_report(
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _kill_numbering(p)  # TOC heading is always unnumbered
             run = p.add_run("Table of Contents")
             run.font.name = font_name
             run.font.size = Pt(16)
@@ -393,6 +413,7 @@ def generate_report(
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _kill_numbering(p)  # LOF heading is always unnumbered
             run = p.add_run("List of Figures")
             run.font.name = font_name
             run.font.size = Pt(16)
@@ -434,6 +455,7 @@ def generate_report(
                 run = p.add_run(f"Chapter {counters['chapter']} {clean_text}")
             else:
                 run = p.add_run(clean_text)
+                _kill_numbering(p)  # Strip Word's built-in <w:numPr> XML from style
             
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
@@ -455,6 +477,7 @@ def generate_report(
             if not style_config.auto_numbering:
                 import re
                 clean_text = re.sub(r"^[\d\.]+\s*", "", clean_text)
+                _kill_numbering(p)  # Strip Word's built-in <w:numPr> XML from style
 
             run = p.add_run(clean_text)
             run.bold = style_config.heading_bold
@@ -483,6 +506,7 @@ def generate_report(
                 run = p.add_run(f"{prefix}{clean_text}")
             else:
                 run = p.add_run(clean_text)
+                _kill_numbering(p)  # Strip Word's built-in <w:numPr> XML from style
 
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
@@ -510,6 +534,7 @@ def generate_report(
                 run = p.add_run(f"{prefix}{clean_text}")
             else:
                 run = p.add_run(clean_text)
+                _kill_numbering(p)  # Strip Word's built-in <w:numPr> XML from style
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(max(10, style_config.heading_size_pt - 4))
@@ -556,7 +581,8 @@ def generate_report(
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = style_config.subheading_alignment
-            run = p.add_run(text.title())  # Changed from UPPER to title case
+            _kill_numbering(p)  # Section headers (Abstract, References) are NEVER numbered
+            run = p.add_run(text.title())
             run.bold = style_config.heading_bold
             run.font.name = style_config.heading_font
             run.font.size = Pt(style_config.heading_size_pt)
@@ -571,6 +597,7 @@ def generate_report(
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _kill_numbering(p)  # Institutional headers (PEO, PO, etc.) are NEVER numbered
             run = p.add_run(text.title())
             run.bold = True
             run.font.name = style_config.heading_font
