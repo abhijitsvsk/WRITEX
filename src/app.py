@@ -102,7 +102,7 @@ with st.sidebar:
     model_options = (
         ["deepseek-chat", "deepseek-reasoner"]
         if provider_key == "deepseek"
-        else ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]
+        else ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
     )
     from src.ai.provider_client import DEEPSEEK_DEFAULT_MODEL, GROQ_DEFAULT_MODEL
     default_model = DEEPSEEK_DEFAULT_MODEL if provider_key == "deepseek" else GROQ_DEFAULT_MODEL

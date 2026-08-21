@@ -80,7 +80,7 @@ def interpret_request(
 
     try:
         completion = ai_client.chat.completions.create(
-            model=getattr(ai_client, "default_model", "llama-3.3-70b-versatile"),
+            model=getattr(ai_client, "default_model", "openai/gpt-oss-120b"),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": raw_text},

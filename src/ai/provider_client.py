@@ -10,8 +10,8 @@ import requests
 from groq import Groq
 
 
-GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
-GROQ_INTERPRETER_MODEL = "llama-3.3-70b-versatile"
+GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
+GROQ_INTERPRETER_MODEL = "openai/gpt-oss-120b"
 DEEPSEEK_DEFAULT_MODEL = "deepseek-chat"
 
 
