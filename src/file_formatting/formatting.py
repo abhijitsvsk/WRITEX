@@ -7,12 +7,14 @@ from docx.oxml.ns import qn
 from docx.enum.style import WD_STYLE_TYPE
 
 
+from typing import Optional
 from dataclasses import dataclass
 
 @dataclass
 class StyleConfig:
     # Page Setup
     margin_inches: float = 1.0
+    left_margin_inches: Optional[float] = None
     
     # Headings
     heading_font: str = "Times New Roman"
@@ -145,73 +147,85 @@ def _postbuild_estimate_pages(doc):
 
 def _patch_toc_lof_pages(doc, page_map):
     """
-    Walk the built Document and replace every '?' placeholder in TOC/LOF
-    entries with the real page number from page_map.
-    
-    Works INLINE on the Document object — no temp file needed.
+    Walk all document paragraphs (including inside SDT content blocks)
+    and replace every '?' placeholder in TOC/LOF entries with the real page number from page_map.
     """
     import re
+    from docx.text.paragraph import Paragraph
+
     def _norm(t):
         return re.sub(r"\s+", " ", t).strip().lower()
 
     patched = 0
     missed = 0
+    running_page = 1
 
-    for para in doc.paragraphs:
+    all_p_elements = doc.element.xpath(".//w:p")
+
+    for p_elem in all_p_elements:
+        para = Paragraph(p_elem, doc)
         if "\t?" not in para.text:
             continue
 
-        # Extract title (everything before the tab)
         title = para.text.split("\t")[0].strip()
 
-        # Look up page number — try exact match first, then normalized
+        # Look up page number — exact match first, then normalized/stripped prefixes
         real_page = page_map.get(title)
         if not real_page:
             norm_title = _norm(title)
+            norm_title_clean = re.sub(r"^(?:chapter\s+\d+|figure\s+[\d\.]+|\d+[\.\d]*)\s*", "", norm_title).strip()
             for key, val in page_map.items():
-                if _norm(key) == norm_title:
+                norm_key = _norm(key)
+                norm_key_clean = re.sub(r"^(?:chapter\s+\d+|figure\s+[\d\.]+|\d+[\.\d]*)\s*", "", norm_key).strip()
+                if norm_key == norm_title or (norm_title_clean and norm_title_clean == norm_key_clean):
                     real_page = val
                     break
 
         if real_page:
+            if str(real_page).isdigit():
+                running_page = max(running_page, int(real_page))
             for run in para.runs:
                 if run.text.endswith("?"):
-                    run.text = run.text[:-1] + real_page
+                    run.text = run.text[:-1] + str(real_page)
                     patched += 1
                     break
         else:
             missed += 1
-            print(f"[PAGE ESTIMATOR] Unresolved: '{title}'")
+            running_page += 1
+            for run in para.runs:
+                if run.text.endswith("?"):
+                    run.text = run.text[:-1] + str(running_page)
+                    patched += 1
+                    break
 
-    print(f"[PAGE ESTIMATOR] Patched {patched} entries, {missed} unresolved.")
-
+    print(f"[PAGE ESTIMATOR] Patched {patched} entries, {missed} fallbacks.")
 
 
 def add_table_of_contents(doc, heading_paragraph, structure=None):
-
-    
+    """
+    Constructs a Word-compliant Table of Contents SDT block.
+    Contains both the dynamic Word TOC field code AND pre-rendered layout entries
+    with tab stops and dot leaders, ensuring full visibility across Word, Google Docs,
+    and LibreOffice.
+    """
     p = doc.add_paragraph()
     r = p.add_run()
-    
+
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
-    
+
     instrText = OxmlElement('w:instrText')
     instrText.set(qn('xml:space'), 'preserve')
     instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
-    
+
     fldChar2 = OxmlElement('w:fldChar')
     fldChar2.set(qn('w:fldCharType'), 'separate')
-    
-    fldChar3 = OxmlElement('w:fldChar')
-    fldChar3.set(qn('w:fldCharType'), 'end')
-    
+
     r._r.append(fldChar1)
     r._r.append(instrText)
     r._r.append(fldChar2)
-    r._r.append(fldChar3)
-    
-    # Wrap the paragraph in an SDT block
+
+    # Wrap in SDT block
     sdt = OxmlElement('w:sdt')
     sdtPr = OxmlElement('w:sdtPr')
     docPartObj = OxmlElement('w:docPartObj')
@@ -222,38 +236,109 @@ def add_table_of_contents(doc, heading_paragraph, structure=None):
     docPartObj.append(docPartUnique)
     sdtPr.append(docPartObj)
     sdt.append(sdtPr)
-    
+
     sdtContent = OxmlElement('w:sdtContent')
     sdtContent.append(p._p)
-    
+
+    if structure:
+        import re
+        ch_counter = 0
+        sub_counter = 0
+        subsub_counter = 0
+
+        toc_items = []
+        for it in structure:
+            itype = it.get("type", "")
+            itext = it.get("text", "").strip()
+            if itype == "section_header":
+                if any(k in itext.lower() for k in ["acknowledgement", "acknowledgment"]):
+                    toc_items.append(("Acknowledgement", Inches(0), True, "iii"))
+                elif "abstract" in itext.lower():
+                    toc_items.append(("Abstract", Inches(0), True, "iv"))
+                elif "references" in itext.lower():
+                    toc_items.append(("References", Inches(0), True, "?"))
+            elif itype == "chapter":
+                ch_counter += 1
+                sub_counter = 0
+                subsub_counter = 0
+                clean = re.sub(r"^[\d\.]+\s*", "", itext).title()
+                toc_items.append((f"Chapter {ch_counter}  {clean}", Inches(0), True, "?"))
+            elif itype == "subheading":
+                sub_counter += 1
+                subsub_counter = 0
+                clean = re.sub(r"^[\d\.]+\s*", "", itext).title()
+                prefix = f"{ch_counter}.{sub_counter} " if ch_counter > 0 else ""
+                toc_items.append((f"{prefix}{clean}", Inches(0.25), False, "?"))
+            elif itype == "subsubheading":
+                subsub_counter += 1
+                clean = re.sub(r"^[\d\.]+\s*", "", itext).title()
+                prefix = f"{ch_counter}.{sub_counter}.{subsub_counter} " if ch_counter > 0 else ""
+                toc_items.append((f"{prefix}{clean}", Inches(0.45), False, "?"))
+
+        for title, indent, is_bold, page_str in toc_items:
+            entry_p = doc.add_paragraph()
+            entry_p.paragraph_format.left_indent = indent
+            entry_p.paragraph_format.space_before = Pt(2)
+            entry_p.paragraph_format.space_after = Pt(2)
+            entry_p.paragraph_format.line_spacing = 1.15
+
+            pPr = entry_p._p.get_or_add_pPr()
+            tabs = OxmlElement('w:tabs')
+            tab = OxmlElement('w:tab')
+            tab.set(qn('w:val'), 'right')
+            tab.set(qn('w:leader'), 'dot')
+            tab.set(qn('w:pos'), '9000')  # 6.25 in
+            tabs.append(tab)
+            pPr.append(tabs)
+
+            r_title = entry_p.add_run(title)
+            r_title.font.name = "Times New Roman"
+            r_title.font.size = Pt(11)
+            r_title.bold = is_bold
+
+            r_tab = entry_p.add_run("\t")
+            r_page = entry_p.add_run(page_str)
+            r_page.font.name = "Times New Roman"
+            r_page.font.size = Pt(11)
+            r_page.bold = is_bold
+
+            sdtContent.append(entry_p._p)
+
+    # Closing field char
+    p_end = doc.add_paragraph()
+    r_end = p_end.add_run()
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    r_end._r.append(fldChar3)
+    sdtContent.append(p_end._p)
+
     sdt.append(sdtContent)
     doc.element.body.append(sdt)
 
-def add_list_of_figures(doc, heading_paragraph, structure=None):
 
-    
+def add_list_of_figures(doc, heading_paragraph, structure=None):
+    """
+    Constructs a Word-compliant List of Figures SDT block.
+    Pre-populates entries with dot leaders and handles dynamic Figure caption fields.
+    """
     p = doc.add_paragraph()
     r = p.add_run()
-    
+
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
-    
+
     instrText = OxmlElement('w:instrText')
     instrText.set(qn('xml:space'), 'preserve')
     instrText.text = 'TOC \\h \\z \\c "Figure"'
-    
+
     fldChar2 = OxmlElement('w:fldChar')
     fldChar2.set(qn('w:fldCharType'), 'separate')
-    
-    fldChar3 = OxmlElement('w:fldChar')
-    fldChar3.set(qn('w:fldCharType'), 'end')
-    
+
     r._r.append(fldChar1)
     r._r.append(instrText)
     r._r.append(fldChar2)
-    r._r.append(fldChar3)
-    
-    # Wrap the paragraph in an SDT block
+
+    # Wrap in SDT block
     sdt = OxmlElement('w:sdt')
     sdtPr = OxmlElement('w:sdtPr')
     docPartObj = OxmlElement('w:docPartObj')
@@ -264,10 +349,56 @@ def add_list_of_figures(doc, heading_paragraph, structure=None):
     docPartObj.append(docPartUnique)
     sdtPr.append(docPartObj)
     sdt.append(sdtPr)
-    
+
     sdtContent = OxmlElement('w:sdtContent')
     sdtContent.append(p._p)
-    
+
+    if structure:
+        ch_counter = 0
+        fig_counter = 0
+        for it in structure:
+            itype = it.get("type", "")
+            if itype == "chapter":
+                ch_counter += 1
+                fig_counter = 0
+            elif itype == "figure":
+                fig_counter += 1
+                cap = (it.get("caption", "") or it.get("text", "")).strip()
+                prefix = f"Figure {ch_counter}.{fig_counter}" if ch_counter > 0 else f"Figure {fig_counter}"
+                entry_title = f"{prefix}:  {cap}"
+
+                entry_p = doc.add_paragraph()
+                entry_p.paragraph_format.space_before = Pt(2)
+                entry_p.paragraph_format.space_after = Pt(2)
+                entry_p.paragraph_format.line_spacing = 1.15
+
+                pPr = entry_p._p.get_or_add_pPr()
+                tabs = OxmlElement('w:tabs')
+                tab = OxmlElement('w:tab')
+                tab.set(qn('w:val'), 'right')
+                tab.set(qn('w:leader'), 'dot')
+                tab.set(qn('w:pos'), '9000')
+                tabs.append(tab)
+                pPr.append(tabs)
+
+                r_t = entry_p.add_run(entry_title)
+                r_t.font.name = "Times New Roman"
+                r_t.font.size = Pt(11)
+
+                entry_p.add_run("\t")
+                r_pg = entry_p.add_run("?")
+                r_pg.font.name = "Times New Roman"
+                r_pg.font.size = Pt(11)
+
+                sdtContent.append(entry_p._p)
+
+    p_end = doc.add_paragraph()
+    r_end = p_end.add_run()
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    r_end._r.append(fldChar3)
+    sdtContent.append(p_end._p)
+
     sdt.append(sdtContent)
     doc.element.body.append(sdt)
 
@@ -316,9 +447,15 @@ def generate_report(
     section.page_width = Mm(210)
     section.page_height = Mm(297)
     
+    left_margin_val = (
+        style_config.left_margin_inches
+        if style_config.left_margin_inches is not None
+        else (style_config.margin_inches if style_config.margin_inches != 1.0 else 1.5)
+    )
+
     section.top_margin = Inches(style_config.margin_inches)
     section.bottom_margin = Inches(style_config.margin_inches)
-    section.left_margin = Inches(style_config.margin_inches)
+    section.left_margin = Inches(left_margin_val)
     section.right_margin = Inches(style_config.margin_inches)
 
     # --- Style Bootstrapping (Root Cause 2 Fix) ---
@@ -377,11 +514,15 @@ def generate_report(
     seen_captions = set()  # Fix 4: Semantic Dedup captions
     skip_indices = set()
     
-    # Enable Pagination (Arabic numbers from the start)
+    # Enable Pagination (Preliminary pages use lowerRoman, Title Page has no footer)
     if doc.sections:
         sec1 = doc.sections[0]
+        sec1.different_first_page_header_footer = True
+        sec1.left_margin = Inches(left_margin_val)
+        for existing_pg in sec1._sectPr.findall(qn('w:pgNumType')):
+            sec1._sectPr.remove(existing_pg)
         pgNumType = OxmlElement('w:pgNumType')
-        pgNumType.set(ns.qn('w:fmt'), 'decimal')
+        pgNumType.set(qn('w:fmt'), 'lowerRoman')
         sec1._sectPr.append(pgNumType)
 
     for idx, item in enumerate(structure):
@@ -431,11 +572,23 @@ def generate_report(
             counters["subsub"] = 0
             counters["figure"] = 0
 
-            # First Chapter gets a new section (for layout)
+            # First Chapter gets a new section (for layout and sequential decimal pagination starting at 1)
             if counters["chapter"] == 1:
                 if not style_config.continuous_sections:
                     new_section = doc.add_section(WD_SECTION.NEW_PAGE)
                     new_section.footer.is_linked_to_previous = False
+                    new_section.header.is_linked_to_previous = False
+                    new_section.different_first_page_header_footer = False
+                    new_section.top_margin = Inches(style_config.margin_inches)
+                    new_section.bottom_margin = Inches(style_config.margin_inches)
+                    new_section.left_margin = Inches(left_margin_val)
+                    new_section.right_margin = Inches(style_config.margin_inches)
+                    for existing_pg in new_section._sectPr.findall(qn('w:pgNumType')):
+                        new_section._sectPr.remove(existing_pg)
+                    pgNumType = OxmlElement('w:pgNumType')
+                    pgNumType.set(qn('w:fmt'), 'decimal')
+                    pgNumType.set(qn('w:start'), '1')
+                    new_section._sectPr.append(pgNumType)
             else:
                 if not style_config.continuous_sections:
                     doc.add_page_break()
@@ -494,7 +647,7 @@ def generate_report(
 
             p = doc.add_paragraph()
             p.style = doc.styles["Heading 2"]
-            p.alignment = style_config.chapter_alignment
+            p.alignment = style_config.subheading_alignment
 
             clean_text = text.title()
             if not style_config.auto_numbering:
@@ -769,48 +922,47 @@ def generate_report(
             counters["figure"] += 1
             caption_clean = (item.get("caption", "") or item.get("text", "")).strip()
             
-            # --- IMAGE PLACEHOLDER OR ACTUAL IMAGE ---
+            # --- IMAGE GENERATION OR DIRECT EMBEDDING ---
             next_item = structure[idx + 1] if idx + 1 < len(structure) else None
-            # If the architecture ever feeds in an image buffer, inject it natively
-            if next_item and next_item.get("type") == "image":
-                import io
-                try:
-                    image_stream = io.BytesIO(next_item["content"])
-                    doc.add_picture(image_stream, width=Inches(6.0))
-                    last_paragraph = doc.paragraphs[-1]
-                    last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                except Exception as e:
-                    print(f"Error embedding diagram: {e}")
+            img_bytes = None
+            if item.get("content"):
+                img_bytes = item["content"]
+            elif next_item and next_item.get("type") == "image":
+                img_bytes = next_item.get("content")
                 skip_indices.add(idx + 1)
             else:
-                placeholder_p = doc.add_paragraph()
-                placeholder_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                placeholder_p.paragraph_format.space_before = Pt(12)
-                placeholder_p.paragraph_format.space_after = Pt(6)
+                from src.visualization.diagram_generator import DiagramGenerator
+                try:
+                    img_bytes = DiagramGenerator.get_diagram_for_figure(caption_clean)
+                except Exception as e:
+                    print(f"Error generating dynamic diagram: {e}")
+                    img_bytes = None
 
-                box_run = placeholder_p.add_run("\n[ Image Placeholder ]\n")
-                box_run.font.name = "Consolas"
-                box_run.font.size = Pt(10)
+            if img_bytes:
+                import io
+                try:
+                    image_stream = io.BytesIO(img_bytes)
+                    p_img = doc.add_paragraph()
+                    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p_img.paragraph_format.space_before = Pt(12)
+                    p_img.paragraph_format.space_after = Pt(6)
+                    run_img = p_img.add_run()
+                    run_img.add_picture(image_stream, width=Inches(5.8))
+                except Exception as e:
+                    print(f"Error embedding diagram image: {e}")
 
-                shading_elm = OxmlElement("w:shd")
-                shading_elm.set(ns.qn("w:val"), "clear")
-                shading_elm.set(ns.qn("w:color"), "auto")
-                shading_elm.set(ns.qn("w:fill"), "EAEAEA")
-                placeholder_p.paragraph_format.element.get_or_add_pPr().append(
-                    shading_elm
-                )
-
-            # --- CAPTION (Native Word SEQ Field) ---
+            # --- CAPTION (Native Word SEQ Field with Cached Figure Count) ---
             p = doc.add_paragraph()
             p.style = doc.styles["Caption"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.paragraph_format.space_after = Pt(12)
+            p.paragraph_format.space_after = Pt(14)
             p.paragraph_format.line_spacing = 1.0
 
-            run = p.add_run("Figure ")
+            ch_prefix = f"{counters['chapter']}." if counters['chapter'] > 0 else ""
+            run = p.add_run(f"Figure {ch_prefix}")
             run.font.name = font_name
-            run.font.size = Pt(11)
-
+            run.font.size = Pt(10.5)
+            run.bold = True
 
             fldChar1 = OxmlElement('w:fldChar')
             fldChar1.set(qn('w:fldCharType'), 'begin')
@@ -819,6 +971,8 @@ def generate_report(
             instrText.text = ' SEQ Figure \\* ARABIC '
             fldChar2 = OxmlElement('w:fldChar')
             fldChar2.set(qn('w:fldCharType'), 'separate')
+            cached_val = OxmlElement('w:t')
+            cached_val.text = str(counters["figure"])
             fldChar3 = OxmlElement('w:fldChar')
             fldChar3.set(qn('w:fldCharType'), 'end')
 
@@ -826,11 +980,13 @@ def generate_report(
             r_xml._r.append(fldChar1)
             r_xml._r.append(instrText)
             r_xml._r.append(fldChar2)
+            r_xml._r.append(cached_val)
             r_xml._r.append(fldChar3)
 
-            run_text = p.add_run(f" {caption_clean}")
+            run_text = p.add_run(f": {caption_clean}")
             run_text.font.name = font_name
-            run_text.font.size = Pt(11)
+            run_text.font.size = Pt(10.5)
+            run_text.italic = True
 
         # 10. PARAGRAPH / BODY / PLACEHOLDERS
         else:
@@ -946,6 +1102,15 @@ def generate_report(
     _verify_mandatory_rules(doc, style_config)
     _patch_toc_lof_pages(doc, page_map)
 
+    # Inject updateFields into Word settings so MS Word automatically updates fields on open
+    try:
+        element = doc.settings.element
+        update_fields = OxmlElement('w:updateFields')
+        update_fields.set(qn('w:val'), 'true')
+        element.append(update_fields)
+    except Exception as e:
+        print(f"Warning setting updateFields: {e}")
+
     # Single-pass save — no temp files, no external patchers
     if hasattr(output_path, "write"):
         doc.save(output_path)
@@ -997,9 +1162,8 @@ def _add_page_numbers(doc, font_name):
             
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         
-        # Professional format: "— PAGE —"
-        # Add left dash
-        run_left = p.add_run("\u2014 ")
+        # Professional format: "- PAGE -"
+        run_left = p.add_run("- ")
         run_left.font.name = font_name
         run_left.font.size = Pt(10)
         
@@ -1018,21 +1182,16 @@ def _add_page_numbers(doc, font_name):
         fldChar2 = OxmlElement("w:fldChar")
         fldChar2.set(ns.qn("w:fldCharType"), "separate")
 
-        # Cached display text for Word versions that don't auto-calc
-        cached_page = OxmlElement("w:t")
-        cached_page.text = "1"
-
         fldChar3 = OxmlElement("w:fldChar")
         fldChar3.set(ns.qn("w:fldCharType"), "end")
 
         run._r.append(fldChar1)
         run._r.append(instrText)
         run._r.append(fldChar2)
-        run._r.append(cached_page)
         run._r.append(fldChar3)
         
         # Add right dash
-        run_right = p.add_run(" \u2014")
+        run_right = p.add_run(" -")
         run_right.font.name = font_name
         run_right.font.size = Pt(10)
 
@@ -1063,10 +1222,15 @@ def _verify_mandatory_rules(doc, style_config: StyleConfig):
             "Bottom": sec.bottom_margin
         }
         
+        left_val = (
+            style_config.left_margin_inches
+            if style_config.left_margin_inches is not None
+            else (style_config.margin_inches if style_config.margin_inches != 1.0 else 1.5)
+        )
         for side, margin_val in margins.items():
-            # Allow small floating point drift
-            if abs(margin_val - expected_emu) > 1000:
-                errors.append(f"{side} Margin mismatch: Expected {style_config.margin_inches} in ({expected_emu} EMU), got {margin_val} EMU")
+            expected = int(left_val * 914400) if side == "Left" else expected_emu
+            if abs(margin_val - expected) > 1000:
+                errors.append(f"{side} Margin mismatch: Expected {expected / 914400:.2f} in ({expected} EMU), got {margin_val} EMU")
             
     # If there are errors, print them. Otherwise print a clean success.
     if errors:

@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import threading
 from .utils import generate_with_retry
 from .code_analysis_formatter import format_detailed_analysis_for_prompt
@@ -11,11 +11,8 @@ from src.ai.provider_client import (
     create_ai_client,
     normalise_provider,
 )
+from .prompt_chains import create_prompt_chain, NarrativeMemory
 import textwrap
-
-# Module-level lock for cache concurrency across threads
-REPORT_CACHE_LOCK = threading.Lock()
-
 
 class ReportGenerator:
     def __init__(
@@ -26,6 +23,7 @@ class ReportGenerator:
     ):
         if not api_key:
             raise ValueError("API Key is required for ReportGenerator")
+        self.api_key = api_key
         self.provider = normalise_provider(provider)
         self.model_name = model_name
         self.model = create_ai_client(
@@ -33,43 +31,48 @@ class ReportGenerator:
             provider=self.provider,
             model_name=model_name,
         )
+        self._memory_cache: Dict[str, str] = {}
 
-        # Free-Tier Caching System
-        self.cache_dir = os.path.join("cache")
-        os.makedirs(self.cache_dir, exist_ok=True)
-        self.cache_file = os.path.join(self.cache_dir, "report_cache.json")
-        self.cache = self._load_cache()
+        # ─── Prompt Chain with Narrative Memory ───
+        self._narrative_memory = NarrativeMemory(self)
+        self._prompt_chain = create_prompt_chain(self)
 
     def _cache_key(self, *parts) -> str:
         safe_parts = [str(part).replace(" ", "_") for part in parts]
         return "_".join([self.provider, self.model_name, *safe_parts])
 
-    def _load_cache(self) -> Dict[str, str]:
-        if os.path.exists(self.cache_file):
-            try:
-                with open(self.cache_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
+    def _cache_get(self, cache_key: str) -> Optional[str]:
+        try:
+            from src.database.session import SessionLocal
+            from src.database.repository import CacheRepository
+            with SessionLocal() as db:
+                val = CacheRepository.get(db, cache_key)
+                if val is not None:
+                    return val
+        except Exception:
+            pass
+        return self._memory_cache.get(cache_key)
 
-    def _save_cache(self):
-        with REPORT_CACHE_LOCK:
-            try:
-                with open(self.cache_file, "w", encoding="utf-8") as f:
-                    json.dump(self.cache, f, indent=4)
-            except Exception as e:
-                print(f"Failed to save cache: {e}")
+    def _cache_set(self, cache_key: str, prompt: str, completion: str):
+        self._memory_cache[cache_key] = completion
+        try:
+            from src.database.session import SessionLocal
+            from src.database.repository import CacheRepository
+            with SessionLocal() as db:
+                CacheRepository.set(
+                    db,
+                    cache_key=cache_key,
+                    provider=self.provider,
+                    model_name=self.model_name,
+                    prompt=prompt,
+                    completion=completion,
+                )
+        except Exception:
+            pass
 
     def clear_cache(self):
-        """Thread-safe method to wipe the generation cache for a fresh run."""
-        with REPORT_CACHE_LOCK:
-            self.cache = {}
-            if os.path.exists(self.cache_file):
-                try:
-                    os.remove(self.cache_file)
-                except Exception as e:
-                    print(f"Failed to clear cache file: {e}")
+        """Thread-safe method to wipe the in-memory cache."""
+        self._memory_cache = {}
 
     def extract_metadata_from_sample(self, sample_text: str) -> Dict[str, str]:
         """
@@ -130,15 +133,15 @@ class ReportGenerator:
             user_context.get("title", "default"),
             user_context.get("session_id", ""),
         )
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
 
         prompt = self._build_prompt(section_name, project_summary, user_context)
 
         try:
             result = generate_with_retry(self.model, prompt)
-            self.cache[cache_key] = result
-            self._save_cache()
+            self._cache_set(cache_key, prompt, result)
             return result
         except Exception as e:
             return f"Error generating section {section_name}: {str(e)}"
@@ -180,8 +183,9 @@ class ReportGenerator:
             user_context.get("title", "default"),
             user_context.get("session_id", ""),
         )
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
 
         metrics_context = ""
         if chapter_title == "Results and Discussion" and user_context.get(
@@ -276,8 +280,7 @@ class ReportGenerator:
         """
 
         result = generate_with_retry(self.model, prompt, response_format={"type": "json_object"})
-        self.cache[cache_key] = result
-        self._save_cache()
+        self._cache_set(cache_key, prompt, result)
         return result
 
     def generate_chapter_intro(
@@ -309,6 +312,10 @@ class ReportGenerator:
         Returns the exact hardcoded string templates mapped from the reference sample.
         Bypasses LLM generation to guarantee zero deviations.
         """
+        dept_raw = user_context.get("department", "Computer Science and Engineering")
+        dept_clean = re.sub(r"^(?:Department of\s+)+", "", str(dept_raw).strip(), flags=re.IGNORECASE)
+        dept_full = f"Department of {dept_clean}"
+
         if section_name.lower() in ["certificate"]:
             title = user_context.get("title", "Project Title")
             team_names = user_context.get("team_names_raw") or [
@@ -317,13 +324,12 @@ class ReportGenerator:
             clean_list = [str(name).strip() for name in team_names if name]
             names_str = ", ".join(clean_list)
             degree = user_context.get("degree", "Bachelor of Technology")
-            dept = user_context.get("department", "Computer Science and Engineering")
-            year = user_context.get("academic_year", "2025-2026")
+            year = str(user_context.get("academic_year", "2025-2026")).replace("\u2013", "-")
             university = user_context.get("university", "University")
 
             return (
                 f'This is to certify that the project report entitled "{title}" is a bonafide '
-                f"record of the work done by {names_str} of the Department of {dept}, "
+                f"record of the work done by {names_str} of the {dept_full}, "
                 f"{university}, during the academic year {year}, in partial fulfillment of the "
                 f"requirements for the award of the degree of {degree}.\n\nDate:"
             )
@@ -331,7 +337,6 @@ class ReportGenerator:
         elif section_name.lower() in ["acknowledgement", "acknowledgment"]:
             principal = user_context.get("principal", "the Principal")
             hod = user_context.get("hod", "the HOD")
-            dept = user_context.get("department", "Computer Science and Engineering")
             title = user_context.get("title", "Project Title")
             guide = user_context.get("guide", "the Guide")
             university = user_context.get("university", "University")
@@ -344,12 +349,12 @@ class ReportGenerator:
 
             return (
                 f"{we} wish to express {our} sincere gratitude towards {principal}, "
-                f"Principal of {university}, and {hod}, Head of the Department of {dept}, "
+                f"Principal of {university}, and {hod}, Head of the {dept_full}, "
                 f"for providing {us} with the opportunity to undertake {our} project, {title}.\n\n"
                 f"It is indeed {our} pleasure and a moment of satisfaction to express {our} "
                 f"sincere gratitude to {our} project guide, {guide}, for the patience and all the "
                 f"priceless advice and wisdom shared with {us} throughout the duration of this project.\n\n"
-                f"We would also like to thank the faculty members of the Department of {dept} "
+                f"We would also like to thank the faculty members of the {dept_full} "
                 f"for their valuable support and suggestions.\n\n"
                 f"Last but not the least, {we.lower()} would like to express {our} sincere gratitude "
                 f"towards {our} parents and friends for their continuous support and constructive ideas."
@@ -369,8 +374,9 @@ class ReportGenerator:
             user_context.get("title", "default"),
             user_context.get("session_id", ""),
         )
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
 
         sliced_summary = {
             "tech_stack": project_summary.get("tech_stack"),
@@ -394,8 +400,7 @@ class ReportGenerator:
         """
         try:
             result = generate_with_retry(self.model, prompt)
-            self.cache[cache_key] = result
-            self._save_cache()
+            self._cache_set(cache_key, prompt, result)
             return result
         except Exception as e:
             return f"Error generating survey: {e}"
@@ -516,3 +521,42 @@ class ReportGenerator:
         elif "result" in title:
             return {"project_type": full_summary.get("project_type")}
         return {"tech_stack": full_summary.get("tech_stack")}
+
+    def generate_academic_report(
+        self,
+        project_context: Dict[str, Any],
+        output_path: Any,
+        special_constraints: Optional[Any] = None,
+        summary: Optional[Any] = None,
+    ):
+        """
+        Public entrypoint for academic report compilation and formatting.
+        Integrates DocumentCompiler, DocumentValidator, and generate_report.
+        """
+        from src.core.compiler import DocumentCompiler
+        from src.validation.validator import DocumentValidator
+        from src.file_formatting.formatting import generate_report, StyleConfig
+
+        compiler = DocumentCompiler(
+            api_key=self.api_key,
+            provider=self.provider,
+            model_name=self.model_name,
+        )
+        compiler.generator = self
+
+        full_structure = compiler.compile_structure(
+            project_context,
+            summary=summary,
+            constraints=special_constraints,
+        )
+        validator = DocumentValidator(constraints=special_constraints)
+        healed_structure = validator.validate_and_heal(full_structure)
+
+        style_cfg = StyleConfig(
+            margin_inches=getattr(special_constraints, "margin_inches", 1.0) or 1.0,
+            content_font=getattr(special_constraints, "font_name", "Times New Roman") or "Times New Roman",
+            content_size_pt=getattr(special_constraints, "font_size", 12.0) or 12.0,
+            line_spacing=getattr(special_constraints, "line_spacing", 1.5) or 1.5,
+        )
+        generate_report(healed_structure, output_path, style_name="Academic", style_config=style_cfg)
+

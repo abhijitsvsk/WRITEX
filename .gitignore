@@ -42,3 +42,9 @@ debug_*.txt
 test_*.txt
 *_extracted.txt
 
+
+# SQLite Databases
+*.db
+*.sqlite
+*.sqlite3
+

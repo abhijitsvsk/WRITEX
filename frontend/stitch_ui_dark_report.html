@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container-lowest": "#0b0e15",
+                        "inverse-surface": "#e1e2ec",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-tertiary-container": "#461f00",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-background": "#e1e2ec",
+                        "outline-variant": "#424754",
+                        "surface-container": "#1d2027",
+                        "error-container": "#93000a",
+                        "on-surface": "#e1e2ec",
+                        "inverse-on-surface": "#2e3038",
+                        "surface-variant": "#32353c",
+                        "primary": "#adc6ff",
+                        "secondary-fixed-dim": "#a4c9ff",
+                        "on-error": "#690005",
+                        "surface-dim": "#10131a",
+                        "surface-container-high": "#272a31",
+                        "on-tertiary": "#502400",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-secondary-container": "#d6e5ff",
+                        "secondary-fixed": "#d4e3ff",
+                        "surface-container-highest": "#32353c",
+                        "tertiary-container": "#df7412",
+                        "secondary": "#a4c9ff",
+                        "outline": "#8c909f",
+                        "primary-fixed": "#d8e2ff",
+                        "background": "#10131a",
+                        "on-tertiary-fixed": "#311400",
+                        "surface-bright": "#363941",
+                        "surface-tint": "#adc6ff",
+                        "on-primary-container": "#00285d",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#00315d",
+                        "surface-container-low": "#191b23",
+                        "on-error-container": "#ffdad6",
+                        "on-primary": "#002e6a",
+                        "secondary-container": "#0267b8",
+                        "tertiary": "#ffb786",
+                        "on-primary-fixed": "#001a42",
+                        "on-secondary-fixed": "#001c39",
+                        "on-secondary-fixed-variant": "#004883",
+                        "surface": "#10131a",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "inverse-primary": "#005ac2",
+                        "primary-container": "#4d8eff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "component-gap-xs": "4px",
+                        "container-padding": "16px",
+                        "unit": "4px",
+                        "gutter": "12px",
+                        "component-gap-sm": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "mono-sm": ["Geist Mono"],
+                        "body-md": ["Geist"],
+                        "display-sm": ["Geist"],
+                        "label-sm": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "mono-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            background-color: #0f172a;
+            color: #e1e2ec;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="font-body-sm text-body-sm selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-padding h-12 bg-surface-container dark:bg-surface-container border-b border-outline-variant dark:border-outline-variant">
+<div class="flex items-center gap-gutter">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary tracking-tight">WriteX Academic AI</span>
+<nav class="hidden md:flex gap-gutter items-center ml-gutter">
+<a class="text-on-surface-variant font-medium hover:bg-surface-variant transition-colors px-2 py-1 rounded" href="#">Dashboard</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1" href="#">Academic Report</a>
+<a class="text-on-surface-variant font-medium hover:bg-surface-variant transition-colors px-2 py-1 rounded" href="#">API Key</a>
+</nav>
+</div>
+<div class="flex items-center gap-component-gap-sm">
+<button class="p-2 material-symbols-outlined text-on-surface-variant hover:bg-surface-variant transition-colors rounded">settings</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-16 pb-24 px-container-padding max-w-6xl mx-auto min-h-screen">
+<!-- Dashboard Header -->
+<div class="mb-gutter flex justify-between items-end">
+<div>
+<h1 class="font-display-sm text-display-sm text-on-surface">Generate Academic Report</h1>
+<p class="text-on-surface-variant">Configure project metadata and repository sources for thesis documentation.</p>
+</div>
+<div class="flex gap-unit bg-surface-container-low p-1 rounded-lg border border-outline-variant">
+<button class="px-4 py-1.5 rounded font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-variant">General</button>
+<button class="px-4 py-1.5 rounded font-label-sm text-label-sm bg-primary text-on-primary shadow-sm">Academic Report</button>
+<button class="px-4 py-1.5 rounded font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-variant">Citation Logic</button>
+</div>
+</div>
+<!-- Tool-Bench Card Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Source Configuration -->
+<section class="lg:col-span-8 flex flex-col gap-gutter">
+<!-- Main Form Card -->
+<div class="bg-surface-container border border-outline-variant rounded shadow-none overflow-hidden">
+<div class="bg-surface-variant/50 px-4 py-2 border-b border-outline-variant flex justify-between items-center">
+<span class="font-mono-sm text-mono-sm uppercase tracking-wider text-on-surface-variant">Repository & Project Data</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">info</span>
+</div>
+<div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-gutter gap-y-4">
+<!-- Project Title (Span 2) -->
+<div class="md:col-span-2 space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">Project Title</label>
+<input class="w-full bg-surface-dim border border-outline-variant rounded px-3 py-2 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-sm text-body-sm" placeholder="e.g., Federated Learning for Edge Computing" type="text"/>
+</div>
+<!-- ZIP Upload -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">Source Code (ZIP)</label>
+<div class="group relative flex items-center justify-center border border-dashed border-outline-variant bg-surface-dim h-[42px] rounded hover:border-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-outline mr-2 text-[18px] group-hover:text-primary">upload_file</span>
+<span class="text-on-surface-variant font-body-sm text-body-sm group-hover:text-primary">Drop ZIP file here</span>
+<input class="absolute inset-0 opacity-0 cursor-pointer" type="file"/>
+</div>
+</div>
+<!-- GitHub URL -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">GitHub Repository URL</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">link</span>
+<input class="w-full bg-surface-dim border border-outline-variant rounded pl-10 pr-3 py-2 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-sm text-body-sm" placeholder="https://github.com/..." type="text"/>
+</div>
+</div>
+<!-- University -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">University / Institution</label>
+<input class="w-full bg-surface-dim border border-outline-variant rounded px-3 py-2 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-sm text-body-sm" placeholder="Enter institution name" type="text"/>
+</div>
+<!-- Degree -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">Degree / Course</label>
+<input class="w-full bg-surface-dim border border-outline-variant rounded px-3 py-2 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-sm text-body-sm" placeholder="e.g., M.Tech Computer Science" type="text"/>
+</div>
+<!-- Guide Name -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">Project Guide / Supervisor</label>
+<input class="w-full bg-surface-dim border border-outline-variant rounded px-3 py-2 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-sm text-body-sm" placeholder="Dr. John Doe" type="text"/>
+</div>
+<!-- HOD Name -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant ml-1">Head of Department (HOD)</label>
+<input class="w-full bg-surface-dim border border-outline-variant rounded px-3 py-2 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-sm text-body-sm" placeholder="Prof. Jane Smith" type="text"/>
+</div>
+</div>
+</div>
+<!-- Team Members Card -->
+<div class="bg-surface-container border border-outline-variant rounded overflow-hidden">
+<div class="bg-surface-variant/50 px-4 py-2 border-b border-outline-variant flex justify-between items-center">
+<span class="font-mono-sm text-mono-sm uppercase tracking-wider text-on-surface-variant">Team Members</span>
+<button class="flex items-center gap-1 text-primary font-label-sm text-label-sm hover:underline" id="add-member">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                            Add Member
+                        </button>
+</div>
+<div class="p-2 space-y-2" id="members-list">
+<!-- Dynamic list of members -->
+<div class="flex items-center gap-2 group p-2 bg-surface-dim border border-outline-variant rounded transition-all hover:border-outline">
+<span class="material-symbols-outlined text-outline text-[18px]">drag_indicator</span>
+<input class="flex-grow bg-transparent border-none outline-none focus:ring-0 text-on-surface p-0 font-body-sm text-body-sm" type="text" value="Alex Rivera (Lead)"/>
+<button class="opacity-0 group-hover:opacity-100 material-symbols-outlined text-error text-[18px] transition-opacity">delete</button>
+</div>
+<div class="flex items-center gap-2 group p-2 bg-surface-dim border border-outline-variant rounded transition-all hover:border-outline">
+<span class="material-symbols-outlined text-outline text-[18px]">drag_indicator</span>
+<input class="flex-grow bg-transparent border-none outline-none focus:ring-0 text-on-surface p-0 font-body-sm text-body-sm" placeholder="Add team member name..." type="text"/>
+<button class="opacity-0 group-hover:opacity-100 material-symbols-outlined text-error text-[18px] transition-opacity">delete</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Column: Settings & Preview -->
+<aside class="lg:col-span-4 flex flex-col gap-gutter">
+<!-- Format Settings -->
+<div class="bg-surface-container border border-outline-variant rounded overflow-hidden">
+<div class="bg-surface-variant/50 px-4 py-2 border-b border-outline-variant">
+<span class="font-mono-sm text-mono-sm uppercase tracking-wider text-on-surface-variant">Report Settings</span>
+</div>
+<div class="p-4 space-y-4">
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">Academic Style</label>
+<select class="w-full bg-surface-dim border border-outline-variant rounded px-3 py-2 text-on-surface focus:border-primary outline-none transition-all font-body-sm text-body-sm appearance-none cursor-pointer">
+<option>IEEE Standard</option>
+<option>ACM Format</option>
+<option>APA 7th Edition</option>
+<option>MLA Manual</option>
+</select>
+</div>
+<div class="space-y-3">
+<label class="font-label-sm text-label-sm text-on-surface-variant block">Include Chapters</label>
+<div class="space-y-2">
+<label class="flex items-center gap-2 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded border-outline-variant bg-surface-dim text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface-variant font-body-sm text-body-sm group-hover:text-on-surface">Abstract & Introduction</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded border-outline-variant bg-surface-dim text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface-variant font-body-sm text-body-sm group-hover:text-on-surface">Literature Survey</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded border-outline-variant bg-surface-dim text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface-variant font-body-sm text-body-sm group-hover:text-on-surface">System Architecture</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded border-outline-variant bg-surface-dim text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface-variant font-body-sm text-body-sm group-hover:text-on-surface">Source Code Analysis</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Panel -->
+<div class="bg-surface-container border border-outline-variant rounded p-4 space-y-4">
+<button class="w-full bg-primary hover:bg-primary-container text-on-primary-container font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] duration-100 shadow-xl shadow-primary/10">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                        Generate Academic Report
+                    </button>
+<p class="text-[11px] text-on-surface-variant text-center leading-tight">
+                        Estimated generation time: 2-3 minutes. This will consume approximately 1,200 credits based on project complexity.
+                    </p>
+</div>
+<!-- Mini Preview -->
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex gap-4">
+<div class="w-16 h-20 bg-surface-dim border border-outline-variant rounded flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-outline text-[32px]">description</span>
+</div>
+<div>
+<span class="font-label-sm text-label-sm text-primary block mb-1">Preview Logic</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">The AI will scan your code structure to automatically generate Chapter 4 (Implementation) and UML diagrams.</p>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-component-gap-sm px-container-padding flex flex-col md:flex-row justify-between items-center gap-unit bg-surface-dim dark:bg-surface-dim border-t border-outline-variant dark:border-outline-variant fixed bottom-0 left-0">
+<div class="flex items-center gap-gutter">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant">WriteX Academic AI</span>
+<span class="text-on-surface-variant text-[11px]">© 2024. All rights reserved.</span>
+</div>
+<div class="flex items-center gap-gutter">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-opacity" href="#">Documentation</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-opacity" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-opacity" href="#">API Status</a>
+<div class="flex items-center gap-1 ml-gutter">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Systems Operational</span>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction for adding team members
+        const addMemberBtn = document.getElementById('add-member');
+        const membersList = document.getElementById('members-list');
+
+        addMemberBtn.addEventListener('click', () => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2 group p-2 bg-surface-dim border border-outline-variant rounded transition-all hover:border-outline opacity-0 transform translate-y-2';
+            div.innerHTML = `
+                <span class="material-symbols-outlined text-outline text-[18px]">drag_indicator</span>
+                <input type="text" placeholder="Enter name..." class="flex-grow bg-transparent border-none outline-none focus:ring-0 text-on-surface p-0 font-body-sm text-body-sm">
+                <button class="opacity-0 group-hover:opacity-100 material-symbols-outlined text-error text-[18px] transition-opacity delete-btn">delete</button>
+            `;
+            membersList.appendChild(div);
+            
+            // Animation in
+            setTimeout(() => {
+                div.classList.remove('opacity-0', 'translate-y-2');
+                div.classList.add('opacity-100', 'translate-y-0');
+            }, 10);
+
+            // Delete functionality
+            div.querySelector('.delete-btn').addEventListener('click', () => {
+                div.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => div.remove(), 200);
+            });
+        });
+
+        // Simple delete for existing items
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const item = e.target.closest('div');
+                item.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => item.remove(), 200);
+            });
+        });
+    </script>
+</body></html>

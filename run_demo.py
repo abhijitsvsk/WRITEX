@@ -11,7 +11,7 @@ from src.analysis.code_analyzer import CodeAnalyzer
 from src.analysis.style_analyzer import StyleAnalyzer
 from src.ai.report_generator import ReportGenerator
 from src.file_formatting.formatting import generate_report
-from src.app import REPORT_SCHEMA
+from src.core.compiler import REPORT_SCHEMA
 
 print("Analyzing Codebase (demo.zip)...")
 analyzer = CodeAnalyzer()

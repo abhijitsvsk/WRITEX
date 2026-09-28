@@ -84,22 +84,32 @@ class CodeAnalyzer:
         total_uncompressed_size = 0
         valid_files = []
 
+        NON_CODE_EXTS = {
+            ".docx", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".ico",
+            ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".zip", ".tar",
+            ".gz", ".pyc", ".class", ".exe", ".dll", ".so", ".dylib"
+        }
+
         for file_info in zip_ref.infolist():
             if file_info.is_dir():
                 continue
-                
-            # Defend against ZIP bombs by validating uncompressed size
-            if file_info.file_size > 500 * 1024:
-                raise ValueError(f"File {file_info.filename} exceeds 500KB uncompressed limit. Aborting to prevent OOM crash.")
-            total_uncompressed_size += file_info.file_size
-            if total_uncompressed_size > 20 * 1024 * 1024:
-                raise ValueError("Total uncompressed size exceeds 20MB limit. Aborting to prevent OOM crash.")
 
             file_path = Path(file_info.filename)
 
             # Skip ignored directories
             if any(part in self.ignored_dirs for part in file_path.parts):
                 continue
+
+            # Skip non-code binary assets
+            if file_path.suffix.lower() in NON_CODE_EXTS:
+                continue
+
+            # Defend against ZIP bombs by validating uncompressed size
+            if file_info.file_size > 500 * 1024:
+                raise ValueError(f"File {file_info.filename} exceeds 500KB uncompressed limit. Aborting to prevent OOM crash.")
+            total_uncompressed_size += file_info.file_size
+            if total_uncompressed_size > 20 * 1024 * 1024:
+                raise ValueError("Total uncompressed size exceeds 20MB limit. Aborting to prevent OOM crash.")
                 
             # HARD EXCLUDE: Protect against small projects skipping score penalties
             name = file_path.name.lower()

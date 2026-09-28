@@ -9,6 +9,7 @@ from typing import Dict, Any, List, Optional
 from src.ai.report_generator import ReportGenerator
 from src.ai.provider_client import DEEPSEEK_DEFAULT_MODEL, GROQ_DEFAULT_MODEL, normalise_provider
 from src.models.constraints import ResolvedConstraints
+from src.ai.rate_limiter import get_rate_limiter
 
 # Centralized Deterministic Schema — Mirrors the sample report structure exactly
 # Subsections can be strings (simple) or dicts with "title" and "subsubsections" keys
@@ -103,6 +104,7 @@ class DocumentCompiler:
             provider=provider,
             model_name=model_name or default_model,
         )
+        self.rate_limiter = get_rate_limiter(provider)
 
     def compile_structure(
         self, context: Dict[str, Any], summary: Any, progress_callback=None,
@@ -242,7 +244,7 @@ class DocumentCompiler:
                     context,
                 )
                 full_structure.append({"type": "paragraph", "text": intro_text})
-                time.sleep(1.0) # Throttle guard to prevent API bursts
+                self.rate_limiter.acquire()
 
             for sub in chapter.get("subsections", []):
                 sub_title = sub["title"] if isinstance(sub, dict) else sub
@@ -263,7 +265,7 @@ class DocumentCompiler:
                     full_structure.append(
                         {"type": "figure", "caption": sub["figure"]}
                     )
-                time.sleep(1.0)
+                self.rate_limiter.acquire()
 
                 current_step += 1
                 if progress_callback:
@@ -297,7 +299,7 @@ class DocumentCompiler:
                             full_structure.append(
                                 {"type": "figure", "caption": subsub["figure"]}
                             )
-                        time.sleep(1.0)
+                        self.rate_limiter.acquire()
 
                         current_step += 1
                         if progress_callback:
@@ -334,7 +336,7 @@ class DocumentCompiler:
                     body_text, "Institutional Requirements", context
                 )
             )
-            time.sleep(1.0) # Throttle guard
+            self.rate_limiter.acquire()
 
             # Minor progress bump
             if progress_callback:
@@ -562,11 +564,18 @@ class DocumentCompiler:
         return "\n\n".join(citations)
 
     def save_checkpoint(self, structure: List[Dict], filename: str = "writex_checkpoint.json"):
-        """Persists the generated structure to disk."""
+        """Persists the generated structure to disk atomically."""
         import json
+        import os
+        import tempfile
         try:
-            with open(filename, "w", encoding="utf-8") as f:
-                json.dump(structure, f, indent=2)
+            dirname = os.path.dirname(os.path.abspath(filename))
+            with tempfile.NamedTemporaryFile("w", dir=dirname, delete=False, encoding="utf-8") as tmp:
+                json.dump(structure, tmp, indent=2)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+                tmp_path = tmp.name
+            os.replace(tmp_path, filename)
         except Exception as e:
             print(f"Failed to save checkpoint: {e}")
 

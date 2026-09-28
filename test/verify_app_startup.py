@@ -7,14 +7,14 @@ root_path = Path(__file__).parent.parent
 sys.path.append(str(root_path))
 
 try:
-    from src.app import run_formatting
-    print("Successfully imported run_formatting from src.app")
+    from src.server import app
+    print("Successfully imported FastAPI app from src.server")
+    assert app.title == "WriteX API"
 except ImportError as e:
-    print(f"Failed to import from src.app: {e}")
+    print(f"Failed to import from src.server: {e}")
     sys.exit(1)
 except Exception as e:
-    # Streamlit pages might throw errors if run directly without streamlit run
-    # detecting that is a sign it loaded far enough
-    print(f"App loaded with expected side-effect: {e}")
+    print(f"Unexpected error verifying FastAPI startup: {e}")
+    sys.exit(1)
 
-print("App startup verification passed.")
+print("FastAPI server startup verification passed.")

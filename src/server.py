@@ -1,24 +1,71 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
 import io
+import os
 import json
 import re
+import asyncio
+from contextlib import asynccontextmanager
+from typing import List, Optional
+
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from src.ai.structurer import structure_text
 from src.file_formatting.formatting import generate_report, StyleConfig
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 from src.api_academic import router as academic_router
+from src.database.session import SessionLocal, get_db
+from src.database.repository import JobRepository
+from src.core.config import settings
+from src.models.schemas import JobStatusResponse, HealthResponse
 
-app = FastAPI(title="WriteX API", description="Academic Report Generation API")
+async def periodic_reconcile_loop():
+    """Runs periodic reconciliation sweep every 5 minutes while the server is alive."""
+    while True:
+        try:
+            await asyncio.sleep(300)
+            with SessionLocal() as db:
+                JobRepository.reconcile_stale_jobs(db, timeout_minutes=settings.STALE_JOB_TIMEOUT_MINUTES)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            # Continue running even if a single sweep encounters an issue
+            pass
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Run initial stale-job reconciliation sweep
+    try:
+        with SessionLocal() as db:
+            JobRepository.reconcile_stale_jobs(db, timeout_minutes=settings.STALE_JOB_TIMEOUT_MINUTES)
+    except Exception as e:
+        print(f"Warning: Startup reconciliation failed: {e}")
+
+    # Start periodic background reconciliation sweep
+    sweep_task = asyncio.create_task(periodic_reconcile_loop())
+    yield
+    # Shutdown: Cancel periodic task gracefully
+    sweep_task.cancel()
+    try:
+        await sweep_task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(
+    title="WriteX API",
+    description="Academic Report Generation API",
+    version="2.2.0",
+    lifespan=lifespan
+)
 
 app.include_router(academic_router)
 
 # Setup CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to the vercel domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,7 +74,7 @@ app.add_middleware(
 def parse_style_config(style_json_str: str) -> StyleConfig:
     try:
         if not style_json_str:
-            return StyleConfig()  # Use defaults
+            return StyleConfig()
             
         cfg_dict = json.loads(style_json_str)
         align_map = {
@@ -125,9 +172,55 @@ def process_formatting(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "version": "2.1.0", "features": ["highlight_code", "auto_numbering", "no_section_break"]}
+@app.get("/health", response_model=HealthResponse)
+def health_check(db: Session = Depends(get_db)):
+    db_status = "connected"
+    try:
+        db.execute(text("SELECT 1")).scalar()
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+
+    return {
+        "status": "ok",
+        "version": "2.2.0",
+        "database": db_status,
+        "features": ["highlight_code", "auto_numbering", "no_section_break", "job_persistence", "token_bucket_rate_limiter"]
+    }
+
+@app.get("/api/jobs/{job_id}", response_model=JobStatusResponse)
+def get_job_status(job_id: str, db: Session = Depends(get_db)):
+    job = JobRepository.get_job(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return JobStatusResponse(
+        job_id=job.id,
+        status=job.status,
+        progress=job.progress,
+        title=job.title,
+        output_file_path=job.output_file_path,
+        error_message=job.error_message,
+        execution_time_seconds=job.execution_time_seconds,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        completed_at=job.completed_at
+    )
+
+@app.get("/api/jobs/{job_id}/download")
+def download_job_output(job_id: str, db: Session = Depends(get_db)):
+    job = JobRepository.get_job(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "COMPLETED" or not job.output_file_path or not os.path.exists(job.output_file_path):
+        raise HTTPException(status_code=400, detail="Report generation not ready or output missing")
+    
+    with open(job.output_file_path, "rb") as f:
+        file_bytes = io.BytesIO(f.read())
+    file_bytes.seek(0)
+    return StreamingResponse(
+        file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={job.title or 'report'}.docx"}
+    )
 
 @app.post("/api/format_text")
 def api_format_text(
@@ -169,13 +262,11 @@ def api_format_file(
             import pypdf
             pdf_io = io.BytesIO(file_bytes)
             reader = pypdf.PdfReader(pdf_io)
-            # Fix: use real newline \n, not escaped literal \\n
             file_txt = "\n".join([p.extract_text() or "" for p in reader.pages])
         elif file.filename.endswith('.docx'):
             from docx import Document
             docx_io = io.BytesIO(file_bytes)
             doc = Document(docx_io)
-            # Fix: use real newline \n, not escaped literal \\n
             file_txt = "\n".join([p.text for p in doc.paragraphs])
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format. Use PDF, DOCX, or TXT.")

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WriteX Academic AI | Professional Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container-lowest": "#0b0e15",
+                        "inverse-surface": "#e1e2ec",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-tertiary-container": "#461f00",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-background": "#e1e2ec",
+                        "outline-variant": "#424754",
+                        "surface-container": "#1d2027",
+                        "error-container": "#93000a",
+                        "on-surface": "#e1e2ec",
+                        "inverse-on-surface": "#2e3038",
+                        "surface-variant": "#32353c",
+                        "primary": "#adc6ff",
+                        "secondary-fixed-dim": "#a4c9ff",
+                        "on-error": "#690005",
+                        "surface-dim": "#10131a",
+                        "surface-container-high": "#272a31",
+                        "on-tertiary": "#502400",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-secondary-container": "#d6e5ff",
+                        "secondary-fixed": "#d4e3ff",
+                        "surface-container-highest": "#32353c",
+                        "tertiary-container": "#df7412",
+                        "secondary": "#a4c9ff",
+                        "outline": "#8c909f",
+                        "primary-fixed": "#d8e2ff",
+                        "background": "#10131a",
+                        "on-tertiary-fixed": "#311400",
+                        "surface-bright": "#363941",
+                        "surface-tint": "#adc6ff",
+                        "on-primary-container": "#00285d",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#00315d",
+                        "surface-container-low": "#191b23",
+                        "on-error-container": "#ffdad6",
+                        "on-primary": "#002e6a",
+                        "secondary-container": "#0267b8",
+                        "tertiary": "#ffb786",
+                        "on-primary-fixed": "#001a42",
+                        "on-secondary-fixed": "#001c39",
+                        "on-secondary-fixed-variant": "#004883",
+                        "surface": "#10131a",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "inverse-primary": "#005ac2",
+                        "primary-container": "#4d8eff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "component-gap-xs": "4px",
+                        "container-padding": "16px",
+                        "unit": "4px",
+                        "gutter": "12px",
+                        "component-gap-sm": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "mono-sm": ["Geist Mono"],
+                        "body-md": ["Geist"],
+                        "display-sm": ["Geist"],
+                        "label-sm": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "mono-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0f172a;
+            color: #e1e2ec;
+            -webkit-font-smoothing: antialiased;
+        }
+        .technical-glow {
+            box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.05);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+            font-size: 18px;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #10131a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="font-body-sm text-body-sm min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-padding h-12 bg-surface-container border-b border-outline-variant">
+<div class="flex items-center gap-gutter">
+<span class="font-headline-sm text-headline-sm font-bold text-primary tracking-tight">WriteX Academic AI</span>
+<div class="hidden md:flex gap-component-gap-sm ml-gutter">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-sm text-label-sm" href="#">Dashboard</a>
+<a class="text-on-surface-variant font-medium hover:bg-surface-variant transition-colors px-2 py-0.5 rounded font-label-sm text-label-sm" href="#">History</a>
+</div>
+</div>
+<div class="flex items-center gap-gutter">
+<!-- API Key Input as specified -->
+<div class="relative flex items-center">
+<span class="absolute left-2 text-outline-variant material-symbols-outlined">key</span>
+<input class="bg-surface-dim border border-outline-variant rounded-lg pl-8 pr-3 py-1 text-mono-sm font-mono-sm w-48 focus:w-64 transition-all" placeholder="API Key" type="password" value="sk-••••••••••••••••"/>
+</div>
+<div class="flex items-center gap-component-gap-sm">
+<button class="p-1 rounded hover:bg-surface-variant transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="flex items-center gap-2 p-1 pl-2 rounded hover:bg-surface-variant transition-colors border border-outline-variant">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Account</span>
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-16 pb-12 px-container-padding max-w-7xl mx-auto w-full">
+<div class="flex flex-col gap-gutter">
+<!-- Dashboard Header -->
+<div class="flex justify-between items-end mb-2">
+<div>
+<h1 class="font-display-sm text-display-sm text-on-surface">Researcher Workbench</h1>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Compile and format academic drafts with high-density AI processing.</p>
+</div>
+<div class="flex gap-unit">
+<span class="px-2 py-1 bg-surface-container-highest border border-outline-variant text-primary font-mono-sm text-mono-sm rounded">SYSTEM: READY</span>
+<span class="px-2 py-1 bg-surface-container-highest border border-outline-variant text-on-surface-variant font-mono-sm text-mono-sm rounded">LATENCY: 24ms</span>
+</div>
+</div>
+<!-- Central Main Card -->
+<div class="bg-surface-container-low border border-outline-variant technical-glow rounded-xl overflow-hidden flex flex-col h-[750px]">
+<!-- Compact Tab Bar -->
+<div class="flex bg-surface-container border-b border-outline-variant px-component-gap-sm">
+<button class="px-gutter py-2 flex items-center gap-2 border-b-2 border-primary text-primary font-label-sm text-label-sm transition-all bg-surface-container-high/50">
+<span class="material-symbols-outlined">content_paste</span>
+                        Paste Text
+                    </button>
+<button class="px-gutter py-2 flex items-center gap-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm transition-all hover:bg-surface-variant">
+<span class="material-symbols-outlined">upload_file</span>
+                        Upload Document
+                    </button>
+<button class="px-gutter py-2 flex items-center gap-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm transition-all hover:bg-surface-variant">
+<span class="material-symbols-outlined">analytics</span>
+                        Academic Report
+                    </button>
+<div class="ml-auto flex items-center gap-gutter px-gutter">
+<span class="text-on-surface-variant font-mono-sm text-mono-sm">UTF-8</span>
+</div>
+</div>
+<!-- Editor Workspace -->
+<div class="flex-grow flex flex-col p-container-padding gap-gutter overflow-hidden">
+<!-- Text Area Section -->
+<div class="flex flex-col gap-unit flex-grow">
+<div class="flex justify-between items-center px-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Source Input</label>
+<span class="text-outline font-mono-sm text-mono-sm">0 characters | 0 words</span>
+</div>
+<textarea class="flex-grow w-full bg-surface-container-lowest border border-outline-variant rounded p-gutter font-mono-sm text-mono-sm text-on-surface resize-none leading-relaxed placeholder:text-outline-variant" placeholder="// Paste your research notes, raw data, or academic abstract here for AI synthesis..."></textarea>
+</div>
+<!-- Advanced Layout Settings (Dense Grid) -->
+<div class="bg-surface-container border border-outline-variant rounded p-gutter">
+<h3 class="font-label-sm text-label-sm text-on-surface uppercase tracking-widest mb-gutter border-b border-outline-variant pb-1">Advanced Layout Settings</h3>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-gutter">
+<!-- Heading Font -->
+<div class="flex flex-col gap-unit">
+<label class="text-[10px] font-bold text-outline-variant uppercase">Heading Font</label>
+<select class="bg-surface-dim border border-outline-variant rounded px-2 py-1 font-body-sm text-body-sm text-on-surface">
+<option>Geist Sans</option>
+<option>Times New Roman</option>
+<option>Computer Modern</option>
+<option>Inter</option>
+</select>
+</div>
+<!-- Font Size -->
+<div class="flex flex-col gap-unit">
+<label class="text-[10px] font-bold text-outline-variant uppercase">Font Size (pt)</label>
+<input class="bg-surface-dim border border-outline-variant rounded px-2 py-1 font-body-sm text-body-sm text-on-surface" type="number" value="12"/>
+</div>
+<!-- Line Spacing -->
+<div class="flex flex-col gap-unit">
+<label class="text-[10px] font-bold text-outline-variant uppercase">Line Spacing</label>
+<input class="bg-surface-dim border border-outline-variant rounded px-2 py-1 font-body-sm text-body-sm text-on-surface" step="0.1" type="number" value="1.5"/>
+</div>
+<!-- Margin -->
+<div class="flex flex-col gap-unit">
+<label class="text-[10px] font-bold text-outline-variant uppercase">Margin (mm)</label>
+<input class="bg-surface-dim border border-outline-variant rounded px-2 py-1 font-body-sm text-body-sm text-on-surface" type="number" value="25"/>
+</div>
+<!-- Alignment -->
+<div class="flex flex-col gap-unit">
+<label class="text-[10px] font-bold text-outline-variant uppercase">Alignment</label>
+<div class="flex border border-outline-variant rounded overflow-hidden h-full">
+<button class="flex-1 bg-surface-variant text-primary border-r border-outline-variant py-1"><span class="material-symbols-outlined !text-[14px]">format_align_left</span></button>
+<button class="flex-1 bg-surface-dim text-outline-variant hover:bg-surface-variant border-r border-outline-variant py-1"><span class="material-symbols-outlined !text-[14px]">format_align_center</span></button>
+<button class="flex-1 bg-surface-dim text-outline-variant hover:bg-surface-variant py-1"><span class="material-symbols-outlined !text-[14px]">format_align_justify</span></button>
+</div>
+</div>
+<!-- Code Style -->
+<div class="flex flex-col gap-unit">
+<label class="text-[10px] font-bold text-outline-variant uppercase">Code Style</label>
+<select class="bg-surface-dim border border-outline-variant rounded px-2 py-1 font-body-sm text-body-sm text-on-surface">
+<option>Monokai</option>
+<option>One Dark</option>
+<option>Solarized</option>
+<option>GitHub Dark</option>
+</select>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Action Bar -->
+<div class="bg-surface-container-high border-t border-outline-variant p-container-padding flex justify-between items-center">
+<div class="flex gap-gutter">
+<button class="flex items-center gap-2 px-3 py-1.5 bg-surface-dim border border-outline-variant rounded text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">save</span>
+<span class="font-label-sm text-label-sm">Save Draft</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 bg-surface-dim border border-outline-variant rounded text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">refresh</span>
+<span class="font-label-sm text-label-sm">Reset</span>
+</button>
+</div>
+<button class="group flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-secondary-container to-primary-container text-on-primary-container font-headline-sm text-headline-sm rounded hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary-container/10">
+<span class="material-symbols-outlined">auto_awesome</span>
+                        Generate Document
+                        <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Lower Grid: Secondary Analytics / History -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-surface-container border border-outline-variant rounded-lg p-gutter">
+<div class="flex items-center justify-between mb-gutter">
+<h4 class="font-label-sm text-label-sm text-on-surface uppercase">Citation Strength</h4>
+<span class="text-primary font-mono-sm text-mono-sm">94%</span>
+</div>
+<div class="w-full bg-surface-dim h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 94%;"></div>
+</div>
+</div>
+<div class="bg-surface-container border border-outline-variant rounded-lg p-gutter">
+<div class="flex items-center justify-between mb-gutter">
+<h4 class="font-label-sm text-label-sm text-on-surface uppercase">Semantic Density</h4>
+<span class="text-tertiary font-mono-sm text-mono-sm">High</span>
+</div>
+<div class="w-full bg-surface-dim h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full" style="width: 78%;"></div>
+</div>
+</div>
+<div class="bg-surface-container border border-outline-variant rounded-lg p-gutter">
+<div class="flex items-center justify-between mb-gutter">
+<h4 class="font-label-sm text-label-sm text-on-surface uppercase">Model Token Usage</h4>
+<span class="text-on-surface-variant font-mono-sm text-mono-sm">4.2k / 128k</span>
+</div>
+<div class="w-full bg-surface-dim h-1 rounded-full overflow-hidden">
+<div class="bg-outline h-full" style="width: 3%;"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-component-gap-sm px-container-padding flex flex-col md:flex-row justify-between items-center gap-unit bg-surface-dim border-t border-outline-variant">
+<div class="flex items-center gap-gutter">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant">WriteX Academic AI</span>
+<span class="text-on-surface-variant font-body-sm text-body-sm">© 2024 WriteX Academic AI. All rights reserved.</span>
+</div>
+<div class="flex gap-gutter">
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200 font-label-sm text-label-sm" href="#">Documentation</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200 font-label-sm text-label-sm" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200 font-label-sm text-label-sm" href="#">Terms of Service</a>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200 font-label-sm text-label-sm" href="#">API Status</a>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interactions for tab switching placeholder
+        const tabs = document.querySelectorAll('button[class*="px-gutter py-2"]');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => {
+                    t.classList.remove('border-primary', 'text-primary', 'bg-surface-container-high/50');
+                    t.classList.add('border-transparent', 'text-on-surface-variant');
+                });
+                tab.classList.add('border-primary', 'text-primary', 'bg-surface-container-high/50');
+                tab.classList.remove('border-transparent', 'text-on-surface-variant');
+            });
+        });
+
+        // Simulating character count in editor
+        const textarea = document.querySelector('textarea');
+        const charCount = document.querySelector('.text-outline.font-mono-sm');
+        textarea.addEventListener('input', (e) => {
+            const count = e.target.value.length;
+            const words = e.target.value.trim() ? e.target.value.trim().split(/\s+/).length : 0;
+            charCount.textContent = `${count} characters | ${words} words`;
+        });
+    </script>
+</body></html>

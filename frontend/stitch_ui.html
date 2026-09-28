@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WriteX - Academic AI Engine</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#464555",
+                        "on-primary": "#1d00a5",
+                        "surface-container-high": "#282a2e",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface-container-highest": "#333539",
+                        "primary": "#c3c0ff",
+                        "on-background": "#e2e2e8",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "primary-fixed": "#e2dfff",
+                        "inverse-on-surface": "#2f3035",
+                        "error-container": "#93000a",
+                        "on-primary-container": "#dad7ff",
+                        "secondary-container": "#00a2e6",
+                        "on-tertiary": "#131e8c",
+                        "surface": "#111318",
+                        "on-tertiary-fixed-variant": "#2f3aa3",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "on-secondary-container": "#00344e",
+                        "on-error": "#690005",
+                        "secondary-fixed-dim": "#89ceff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-secondary-fixed-variant": "#004c6e",
+                        "on-primary-fixed": "#0f0069",
+                        "on-secondary-fixed": "#001e2f",
+                        "background": "#111318",
+                        "inverse-primary": "#4d44e3",
+                        "surface-container": "#1e2024",
+                        "on-surface": "#e2e2e8",
+                        "surface-tint": "#c3c0ff",
+                        "outline": "#918fa1",
+                        "surface-dim": "#111318",
+                        "primary-container": "#4f46e5",
+                        "on-secondary": "#00344d",
+                        "secondary-fixed": "#c9e6ff",
+                        "surface-container-low": "#1a1c20",
+                        "tertiary-container": "#4a55be",
+                        "tertiary": "#bdc2ff",
+                        "tertiary-fixed": "#e0e0ff",
+                        "on-tertiary-container": "#d7d8ff",
+                        "on-surface-variant": "#c7c4d8",
+                        "surface-bright": "#37393e",
+                        "tertiary-fixed-dim": "#bdc2ff",
+                        "on-tertiary-fixed": "#000767",
+                        "surface-variant": "#333539",
+                        "secondary": "#89ceff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "20px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "stack-xl": "64px",
+                        "gutter": "24px",
+                        "margin-desktop": "64px",
+                        "container-max": "1440px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Geist"],
+                        "mono-code": ["Geist Mono"],
+                        "display-lg-mobile": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "body-md": ["Geist"],
+                        "label-sm": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "mono-code": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-lg-mobile": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-sm": ["13px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #111318;
+            font-family: 'Geist', sans-serif;
+            overflow-x: hidden;
+        }
+        .glow-primary {
+            box-shadow: 0 0 60px rgba(79, 70, 229, 0.15);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-highlight {
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.4;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .tab-active {
+            color: #c3c0ff;
+            border-bottom: 2px solid #c3c0ff;
+        }
+        input::file-selector-button {
+            display: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-on-surface">
+<!-- Atmospheric Background Components -->
+<div class="blob bg-primary top-[-10%] left-[-10%]"></div>
+<div class="blob bg-tertiary-container bottom-[-10%] right-[-10%]"></div>
+<div class="blob bg-secondary-container top-[40%] right-[10%]"></div>
+<!-- Navigation Shell -->
+<nav class="fixed top-0 w-full z-50 bg-surface/30 backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(79,70,229,0.15)]">
+<div class="flex justify-between items-center px-margin-desktop py-4 max-w-container-max mx-auto">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">WriteX</span>
+</div>
+<div class="hidden md:flex gap-8">
+<a class="text-primary border-b-2 border-primary font-bold pb-1 font-body-md text-body-md" href="#">Paste Text</a>
+<a class="text-on-surface-variant font-medium hover:text-on-surface transition-colors font-body-md text-body-md" href="#">Upload Document</a>
+<a class="text-on-surface-variant font-medium hover:text-on-surface transition-colors font-body-md text-body-md" href="#">Academic Report</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">settings</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">account_circle</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="pt-32 pb-stack-xl px-margin-mobile md:px-0">
+<div class="max-w-4xl mx-auto">
+<!-- Central Dashboard Card -->
+<div class="glass-card glass-highlight rounded-xl p-8 glow-primary relative overflow-hidden">
+<!-- Card Header Tabs -->
+<div class="flex border-b border-white/10 mb-8 overflow-x-auto">
+<button class="px-6 py-4 font-headline-md text-headline-md text-primary border-b-2 border-primary transition-all flex items-center gap-2 whitespace-nowrap" id="tab-paste" onclick="switchTab('paste')">
+<span class="material-symbols-outlined">content_paste</span> Paste Text
+                    </button>
+<button class="px-6 py-4 font-headline-md text-headline-md text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all flex items-center gap-2 whitespace-nowrap" id="tab-upload" onclick="switchTab('upload')">
+<span class="material-symbols-outlined">upload_file</span> Upload Document
+                    </button>
+<button class="px-6 py-4 font-headline-md text-headline-md text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all flex items-center gap-2 whitespace-nowrap" id="tab-academic" onclick="switchTab('academic')">
+<span class="material-symbols-outlined">description</span> Academic Report
+                    </button>
+</div>
+<!-- Tab Content: Paste Text -->
+<div class="tab-pane" id="content-paste">
+<div class="group relative">
+<textarea class="w-full h-80 bg-white/5 border border-white/10 rounded-lg p-6 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all resize-none shadow-inner" placeholder="Paste your research notes, data, or draft here..."></textarea>
+<div class="absolute inset-0 rounded-lg pointer-events-none group-focus-within:border-primary/30 border border-transparent transition-colors"></div>
+</div>
+</div>
+<!-- Tab Content: Upload -->
+<div class="tab-pane hidden" id="content-upload">
+<div class="w-full h-80 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center gap-4 hover:border-primary/50 transition-all cursor-pointer bg-white/[0.02]">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="upload_file">upload_file</span>
+</div>
+<div class="text-center">
+<p class="font-headline-md text-headline-md text-on-surface">Drag and drop your document</p>
+<p class="font-body-md text-body-md text-on-surface-variant">PDF, DOCX, or TXT files up to 25MB</p>
+</div>
+</div>
+</div>
+<!-- Tab Content: Academic Report -->
+<div class="tab-pane hidden" id="content-academic">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="space-y-4">
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">Project ZIP</span>
+<div class="relative">
+<input class="w-full bg-white/5 border border-white/10 rounded-lg p-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" type="file"/>
+</div>
+</label>
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">GitHub URL</span>
+<input class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="https://github.com/..." type="text"/>
+</label>
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">Team Members</span>
+<input class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="John Doe, Jane Smith" type="text"/>
+</label>
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">Project Title</span>
+<input class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="Autonomous Navigation Systems" type="text"/>
+</label>
+</div>
+<div class="space-y-4">
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">Degree & University</span>
+<div class="flex gap-2">
+<input class="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="B.Tech" type="text"/>
+<input class="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="MIT" type="text"/>
+</div>
+</label>
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">Guide & HOD</span>
+<div class="flex gap-2">
+<input class="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="Dr. Alan" type="text"/>
+<input class="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary outline-none" placeholder="HOD Name" type="text"/>
+</div>
+</label>
+<label class="block">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 block">Special Requests</span>
+<textarea class="w-full h-[108px] bg-white/5 border border-white/10 rounded-lg p-4 font-body-md text-body-md text-on-surface focus:border-primary outline-none resize-none" placeholder="Add citations, custom styles, or specific focus areas..."></textarea>
+</label>
+</div>
+</div>
+</div>
+<!-- Shared Controls Section -->
+<div class="mt-stack-lg pt-stack-lg border-t border-white/10 space-y-stack-md">
+<!-- Media and Engine Selection -->
+<div class="flex flex-col md:flex-row gap-gutter items-end">
+<div class="flex-1 w-full">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-3 block">Attach Media</span>
+<div class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+<div class="w-24 h-24 rounded-lg glass-card flex-shrink-0 flex items-center justify-center group cursor-pointer hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">add_photo_alternate</span>
+</div>
+<div class="w-24 h-24 rounded-lg bg-cover bg-center flex-shrink-0 border border-white/10" data-alt="A macro close-up of a high-tech microprocessor glowing with ethereal blue light. The intricate circuitry is highlighted by vibrant violet and deep indigo neon traces, creating a sense of advanced computational power. The atmosphere is futuristic and scientific, with soft bokeh lights in the background reinforcing a high-performance, digital research theme." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA_AGI9xfmDgM2AF1-xRIfV_5c8QM4FoYuAVcUKOkbSpoXb8ySc3IIzSHymElKgneAEfQqTz5wM6FBukzap8VW3N_j1uVGpw5JQjnwWIFaIEajwifNh-Y62Ty_tdX5k7qEfXyMmDC7_7yozFjEjjmsWGCpf1voBQHwYFgQAVQNmXsNH7E4itqIaPdcxpUgIZk1-l9YVbdj_WKPmtsEKrVntizLPCaGkbi3CiHviPgESQ7gJHFMMpJK0Nx_tiPz5VmfXij8H--VirGM')"></div>
+<div class="w-24 h-24 rounded-lg bg-cover bg-center flex-shrink-0 border border-white/10" data-alt="An abstract visualization of large language model neural networks represented as glowing connections. Soft, diffused particles of light drift through a deep dark void, interconnected by fine, crystalline filaments of glowing indigo and cyan. The lighting is moody and cinematic, emphasizing technical precision and the complex nature of artificial intelligence in an academic setting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBKszpozwRsooH0I6yvuOWmLA01mCt62PcJNGx9Nz3cpvHSp8N0J9d1B0Bp8Y1ynnM9JZ6VEpMrrOq-9JVMO0gPW-92xQjKWh6oCVP93Q_TqKRi-EDUieelPFtnVWg6UZ5wN2O1BO7L16iAb5Rbuq4yLq9NAAZM-j_eU2JdJn7RrF9msi19bVkvu15rvKsVzdkwCneCKsD7Br-vR2KIBnUv3InmowuLT8pLjvuT3dPAEgvUwb78YDSrownxn4a1hyjkpzlWwI2vBtk')"></div>
+</div>
+</div>
+<div class="w-full md:w-64">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-3 block">Processing Mode</span>
+<select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface focus:border-primary outline-none appearance-none cursor-pointer">
+<option>Let AI Decide</option>
+<option>Precision Academic</option>
+<option>Creative Thesis</option>
+<option>Quick Summary</option>
+</select>
+</div>
+</div>
+<!-- Advanced Layout Collapsible -->
+<details class="group">
+<summary class="flex items-center gap-2 cursor-pointer text-on-surface-variant hover:text-primary transition-colors font-label-sm text-label-sm uppercase list-none">
+<span class="material-symbols-outlined group-open:rotate-90 transition-transform">chevron_right</span>
+                            Advanced Layout Settings
+                        </summary>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter pt-4 px-4">
+<div class="space-y-4">
+<div>
+<div class="flex justify-between mb-2">
+<span class="font-body-md text-body-md text-on-surface-variant">Font Size</span>
+<span class="text-primary">11pt</span>
+</div>
+<input class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" type="range"/>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<span class="font-body-md text-body-md text-on-surface-variant">Line Spacing</span>
+<span class="text-primary">1.5x</span>
+</div>
+<input class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" type="range"/>
+</div>
+</div>
+<div class="space-y-4">
+<label class="block">
+<span class="font-body-md text-body-md text-on-surface-variant mb-2 block">Typography Preset</span>
+<select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 font-body-md text-body-md text-on-surface">
+<option>Modern Serif (APA)</option>
+<option>Technical Sans (IEEE)</option>
+<option>Classic Formal (MLA)</option>
+</select>
+</label>
+</div>
+</div>
+</details>
+<!-- Generate Button -->
+<div class="pt-stack-md">
+<button class="w-full py-6 rounded-full bg-gradient-to-r from-primary-container to-secondary-container text-white font-headline-md text-headline-md flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(79,70,229,0.4)] active:scale-[0.98] transition-all hover:shadow-[0_0_50px_rgba(79,70,229,0.6)] group">
+<span class="transition-transform group-hover:rotate-12">✨</span> Generate Document
+                        </button>
+</div>
+</div>
+</div>
+<!-- Footer Section -->
+<footer class="mt-stack-xl flex flex-col md:flex-row justify-between items-center px-4 gap-4 opacity-60">
+<p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 WriteX Academic Engine. All rights reserved.</p>
+<div class="flex gap-6">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">API Docs</a>
+</div>
+</footer>
+</div>
+</main>
+<script>
+        function switchTab(tab) {
+            // Content Toggle
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+
+            // Tab Style Toggle
+            const tabs = ['paste', 'upload', 'academic'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    el.classList.add('text-primary', 'border-primary');
+                    el.classList.remove('text-on-surface-variant', 'border-transparent');
+                } else {
+                    el.classList.remove('text-primary', 'border-primary');
+                    el.classList.add('text-on-surface-variant', 'border-transparent');
+                }
+            });
+        }
+        
+        // Micro-interaction for sliders
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const val = e.target.value;
+                e.target.style.backgroundSize = val + '% 100%';
+            });
+        });
+    </script>
+</body></html>
